@@ -3,7 +3,7 @@
 %% @end
 %%%-------------------------------------------------------------------
 
--module(enfddsc_app).
+-module(xaptum_client_app).
 
 
 %% Application behaviour and callbacks
@@ -34,7 +34,7 @@
 %% application behaviour implementation
 %%====================================================================
 start(_StartType, _StartArgs) ->
-    lager:info("Starting enfddsc application"),
+    lager:info("Starting xaptum_client application"),
 
     %% Start root supervisor
     ?MODULE:start_link().
@@ -56,7 +56,7 @@ get_env(App, EnvVar) ->
     end.
 
 priv_dir() ->
-    case code:priv_dir(enfddsc) of
+    case code:priv_dir(xaptum_client) of
 	{error, bad_name} ->
 	    lager:info("Couldn't find priv dir for the application, using ./priv~n"), "./priv";
 	PrivDir -> filename:absname(PrivDir)
@@ -85,9 +85,9 @@ init([]) ->
 
     %% Create elli child spec
     {ok, ElliPort} = get_env(App, stat_port), 
-    ElliOpts = [{callback, enfddsc_http}, {port, ElliPort}],
+    ElliOpts = [{callback, xaptum_client_http}, {port, ElliPort}],
     Elli = {
-        enfddsc_http,
+        xaptum_client_http,
         {elli, start_link, [ElliOpts]},
         permanent,
         5000,
@@ -99,12 +99,12 @@ init([]) ->
 
 %% dds child spec
 child_spec(xaptum_device) ->
-    {xaptum_device, {enfddsc, start_device, []}, permanent, 2000, worker, [enfddsc]};
+    {xaptum_device, {xaptum_client, start_device, []}, permanent, 2000, worker, [xaptum_client]};
 child_spec(xaptum_subscriber) ->
-    {xaptum_subscriber, {enfddsc, start_subscriber, []}, permanent, 2000, worker, [enfddsc]}.
+    {xaptum_subscriber, {xaptum_client, start_subscriber, []}, permanent, 2000, worker, [xaptum_client]}.
 
 %% Bacnet child spec
 bacnet_child_spec(xaptum_device) ->
-    {xaptum_device, {bacnet_proxy, start_proxy, []}, permanent, 2000, worker, [enfddsc]};
+    {xaptum_device, {bacnet_proxy, start_proxy, []}, permanent, 2000, worker, [xaptum_client]};
 bacnet_child_spec(xaptum_subscriber) ->
-    {xaptum_subscriber, {bacnet_control, start_control, []}, permanent, 2000, worker, [enfddsc]}.
+    {xaptum_subscriber, {bacnet_control, start_control, []}, permanent, 2000, worker, [xaptum_client]}.

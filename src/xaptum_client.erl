@@ -1,4 +1,4 @@
--module(enfddsc).
+-module(xaptum_client).
 
 -behaviour(gen_server).
 
@@ -42,28 +42,28 @@
 %% API
 %%====================================
 start_device() ->
-    {ok, App} = enfddsc:get_application(),
-    {ok, IpFile} = enfddsc:get_env(App, ipv6_file),
+    {ok, App} = xaptum_client:get_application(),
+    {ok, IpFile} = xaptum_client:get_env(App, ipv6_file),
 
     DeviceIp = read_ipv6_file(IpFile),
     start_device(DeviceIp).
 
 start_subscriber() ->
-    {ok, App} = enfddsc:get_application(),
-    {ok, IpFile} = enfddsc:get_env(App, ipv6_file),
-    {ok, Queue} = enfddsc:get_env(App, dds_queue),
+    {ok, App} = xaptum_client:get_application(),
+    {ok, IpFile} = xaptum_client:get_env(App, ipv6_file),
+    {ok, Queue} = xaptum_client:get_env(App, dds_queue),
 
     SubIp = read_ipv6_file(IpFile),
     start_subscriber(SubIp, Queue).
 
 start_device(DeviceIp) when is_list(DeviceIp) ->
     DIP = ipv6_to_binary(DeviceIp),
-    gen_enfc:start_link({local, ?DEVICE}, ?MODULE, [{?DEVICE, DIP}], []).
+    gen_xaptum:start_link({local, ?DEVICE}, ?MODULE, [{?DEVICE, DIP}], []).
 
 start_subscriber(SubIp, Queue) when is_list(SubIp), is_list(Queue) ->
     Q = list_to_binary(Queue),
     SIP = ipv6_to_binary(SubIp),
-    gen_enfc:start_link({local, ?SUBSCRIBER}, ?MODULE, [{?SUBSCRIBER, SIP, Q}], []).
+    gen_xaptum:start_link({local, ?SUBSCRIBER}, ?MODULE, [{?SUBSCRIBER, SIP, Q}], []).
 
 send_message(Server, Msg) when is_list(Msg) ->
     send_message(Server, list_to_binary(Msg));
@@ -86,13 +86,13 @@ get_message_count(Server) ->
 %% Helper API's
 %%====================================
 get_application() ->
-    enfddsc_app:get_application().
+    xaptum_client_app:get_application().
 
 get_env(App, EnvVar) ->
-    enfddsc_app:get_env(App, EnvVar).
+    xaptum_client_app:get_env(App, EnvVar).
 
 priv_dir() ->
-    enfddsc_app:priv_dir().
+    xaptum_client_app:priv_dir().
 
 read_ipv6_file(IpFile) ->
     {ok, File} = file:read_file(IpFile),
@@ -196,14 +196,14 @@ handle_info(_Msg, State) ->
 handle_cast({send, Msg}, #state{session_token = ST, sent = S} = State) ->
     %% send a regular message
     Packet = ddslib:build_reg_message(ST, Msg),
-    ok = gen_enfc:send(Packet),
+    ok = gen_xaptum:send(Packet),
     {noreply, State#state{sent = S+1}};
 
 handle_cast({send, Dest, Msg}, #state{session_token = ST, sent = S} = State) ->
     %% send a control message
     Control = <<Dest/binary,Msg/binary>>,
     Packet = ddslib:build_control_message(ST, Control),
-    ok = gen_enfc:send(Packet),
+    ok = gen_xaptum:send(Packet),
     {noreply, State#state{sent = S+1}};
 
 handle_cast(stop, State) ->
@@ -225,15 +225,14 @@ handle_call(_Msg, _From, State) ->
 create_dds_device(Ip) ->
     %% Build authentication
     PubReq = ddslib:build_init_pub_req(Ip),
-    ok = gen_enfc:send(PubReq),
+    ok = gen_xaptum:send(PubReq),
     lager:info("Sent device authentication Request"),
     ok.
 
 create_dds_subscriber(Ip, Q) ->
-
     %% build Authentication Request
     SubReq = ddslib:build_init_sub_req(Ip, Q),
-    ok = gen_enfc:send(SubReq),
+    ok = gen_xaptum:send(SubReq),
     lager:info("Sent subscriber authentication Request"),
     ok.
 

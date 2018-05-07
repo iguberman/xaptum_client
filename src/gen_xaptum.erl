@@ -1,4 +1,4 @@
--module(gen_enfc).
+-module(gen_xaptum).
 
 -behaviour(gen_server).
 
@@ -137,7 +137,7 @@ connect_to_broker() ->
     {ok, Keyfile} = get_env(App, key_file),
 
     %% Connect to XMB
-    {ok, C} = erltls:connect(Host, Port, 
+    {ok, C} = erltls:connect(Host, Port,
 		   [binary, {active, once}, 
 		    {reuseaddr, true}, 
 		    {packet, 0}, 

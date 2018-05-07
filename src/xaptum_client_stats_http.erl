@@ -1,4 +1,4 @@
--module(enfddsc_http).
+-module(xaptum_client_stats_http).
 
 -export([handle/2, handle_event/3]).
 
@@ -14,7 +14,7 @@ handle(Req, _Args) ->
 
 %% Respond only to / 
 handle('GET',[], _Req) ->
-    Priv = enfddsc_app:priv_dir(),
+    Priv = xaptum_client_app:priv_dir(),
     IF = filename:join(Priv, "index.html"),
     {ok, File} = file:read_file(IF),
     {ok, [], File};
@@ -41,8 +41,8 @@ get_stat() ->
 		undefined ->
 		    {<<"">>, 0, 0};
 		Pid ->
-		    enfddsc:get_message_count(Pid)
+		    xaptum_client:get_message_count(Pid)
 	    end;
 	Pid ->
-	    enfddsc:get_message_count(Pid)
+	    xaptum_client:get_message_count(Pid)
     end.

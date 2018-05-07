@@ -30,17 +30,17 @@
 %% API
 %%====================================
 start_control() ->
-    {ok, App} = enfddsc:get_application(),
-    {ok, IpFile} = enfddsc:get_env(App, ipv6_file),
-    {ok, Queue} = enfddsc:get_env(App, dds_queue),
+    {ok, App} = xaptum_client:get_application(),
+    {ok, IpFile} = xaptum_client:get_env(App, ipv6_file),
+    {ok, Queue} = xaptum_client:get_env(App, dds_queue),
 
-    SubIp = enfddsc:read_ipv6_file(IpFile),
+    SubIp = xaptum_client:read_ipv6_file(IpFile),
     start_subscriber(SubIp, Queue).
 
 start_subscriber(SubIp, Queue) when is_list(SubIp), is_list(Queue) ->
     Q = list_to_binary(Queue),
-    SIP = enfddsc:ipv6_to_binary(SubIp),
-    gen_enfc:start_link({local, ?BACNET_CONTROL}, ?MODULE, [{?BACNET_CONTROL, SIP, Q}], []).
+    SIP = xaptum_client:ipv6_to_binary(SubIp),
+    gen_xaptum:start_link({local, ?BACNET_CONTROL}, ?MODULE, [{?BACNET_CONTROL, SIP, Q}], []).
 
 send_message(Server, Msg) when is_list(Msg) ->
     send_message(Server, list_to_binary(Msg));
@@ -50,7 +50,7 @@ send_message(Server, Msg) when is_binary(Msg) ->
 send_message(Server, Dest, Msg) when is_list(Dest), is_list(Msg) ->
     send_message(Server, Dest, list_to_binary(Msg));
 send_message(Server, Dest, Msg) when is_list(Dest), is_binary(Msg) ->
-    D = enfddsc:ipv6_to_binary(Dest),
+    D = xaptum_client:ipv6_to_binary(Dest),
     gen_server:cast(Server, {send, D, Msg}).
 
 stop(Server) ->
@@ -107,7 +107,7 @@ handle_info({recv, RawData}, #state{fsm = op, type = ?BACNET_CONTROL, data = Bin
 			       %% If the Original msg matches heartbeat
 			       FnNewState = case OriginalMsg of
 						<<?IAM, Ip/binary>> ->
-						    DestIp = enfddsc:ipv6_binary_to_text(Ip),
+						    DestIp = xaptum_client:ipv6_binary_to_text(Ip),
 						    NewDict = dict:store(DestIp, 1, Dict),
 						    FnState#state{received = R+1, dict = NewDict, data = Rest};
 
@@ -145,7 +145,7 @@ handle_info({recv, RawData}, #state{fsm = op, type = ?BACNET_CONTROL, data = Bin
 handle_info({poll_loop, write_poll}, #state{type = ?BACNET_CONTROL, dict = Dict, poll_req = PREQ} = State) ->
     Ips = dict:fetch_keys(Dict),
     lists:foreach( fun(Ip) ->
-			   IpBytes = enfddsc:ipv6_to_binary(Ip),
+			   IpBytes = xaptum_client:ipv6_to_binary(Ip),
 			   <<Id:64, Tag:64>> = IpBytes,
 			   {ok, Control} = bacnet_utils:build_write_property_request(Id, Tag),
 			   ?MODULE:send_message(self(), Ip, Control),
@@ -171,14 +171,14 @@ handle_info(_Msg, State) ->
 handle_cast({send, Msg}, #state{session_token = ST, sent = S} = State) ->
     %% send a regular message
     Packet = ddslib:build_reg_message(ST, Msg),
-    ok = gen_enfc:send(Packet),
+    ok = gen_xaptum:send(Packet),
     {noreply, State#state{sent = S+1}};
 
 handle_cast({send, Dest, Msg}, #state{session_token = ST, sent = S} = State) ->
     %% send a control message
     Control = <<Dest/binary,Msg/binary>>,
     Packet = ddslib:build_control_message(ST, Control),
-    ok = gen_enfc:send(Packet),
+    ok = gen_xaptum:send(Packet),
     {noreply, State#state{sent = S+1}};
 
 handle_cast(stop, State) ->
@@ -200,7 +200,7 @@ handle_call(_Msg, _From, State) ->
 create_dds_subscriber(Ip, Q) ->
     %% build Authentication Request
     SubReq = ddslib:build_init_sub_req(Ip, Q),
-    ok = gen_enfc:send(SubReq),
+    ok = gen_xaptum:send(SubReq),
     lager:info("Sent subscriber authentication Request"),
     ok.
 

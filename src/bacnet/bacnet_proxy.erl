@@ -31,15 +31,15 @@
 %% API
 %%====================================
 start_proxy() ->
-    {ok, App} = enfddsc:get_application(),
-    {ok, IpFile} = enfddsc:get_env(App, ipv6_file),
+    {ok, App} = xaptum_client:get_application(),
+    {ok, IpFile} = xaptum_client:get_env(App, ipv6_file),
 
-    DeviceIp = enfddsc:read_ipv6_file(IpFile),
+    DeviceIp = xaptum_client:read_ipv6_file(IpFile),
     start_device(DeviceIp).
 
 start_device(DeviceIp) when is_list(DeviceIp) ->
-    DIP = enfddsc:ipv6_to_binary(DeviceIp),
-    gen_enfc:start_link({local, ?BACNET_PROXY}, ?MODULE, [{?BACNET_PROXY, DIP}], []).
+    DIP = xaptum_client:ipv6_to_binary(DeviceIp),
+    gen_xaptum:start_link({local, ?BACNET_PROXY}, ?MODULE, [{?BACNET_PROXY, DIP}], []).
 
 send_message(Server, Msg) when is_list(Msg) ->
     send_message(Server, list_to_binary(Msg));
@@ -49,7 +49,7 @@ send_message(Server, Msg) when is_binary(Msg) ->
 send_message(Server, Dest, Msg) when is_list(Dest), is_list(Msg) ->
     send_message(Server, Dest, list_to_binary(Msg));
 send_message(Server, Dest, Msg) when is_list(Dest), is_binary(Msg) ->
-    D = enfddsc:ipv6_to_binary(Dest),
+    D = xaptum_client:ipv6_to_binary(Dest),
     gen_server:cast(Server, {send, D, Msg}).
 
 stop(Server) ->
@@ -135,14 +135,14 @@ handle_info(_Msg, State) ->
 handle_cast({send, Msg}, #state{session_token = ST, sent = S} = State) ->
     %% send a regular message
     Packet = ddslib:build_reg_message(ST, Msg),
-    ok = gen_enfc:send(Packet),
+    ok = gen_xaptum:send(Packet),
     {noreply, State#state{sent = S+1}};
 
 handle_cast({send, Dest, Msg}, #state{session_token = ST, sent = S} = State) ->
     %% send a control message
     Control = <<Dest/binary,Msg/binary>>,
     Packet = ddslib:build_control_message(ST, Control),
-    ok = gen_enfc:send(Packet),
+    ok = gen_xaptum:send(Packet),
     {noreply, State#state{sent = S+1}};
 
 handle_cast(stop, State) ->
@@ -164,7 +164,7 @@ handle_call(_Msg, _From, State) ->
 create_dds_device(Ip) ->
     %% Build authentication
     PubReq = ddslib:build_init_pub_req(Ip),
-    ok = gen_enfc:send(PubReq),
+    ok = gen_xaptum:send(PubReq),
     lager:info("Sent device authentication Request"),
     ok.
 
