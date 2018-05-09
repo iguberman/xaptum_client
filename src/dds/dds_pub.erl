@@ -64,7 +64,7 @@ on_receive(<<?DDS_MARKER, ?AUTH_RES, ?SESSION_TOKEN_SIZE:16, SessionToken:?SESSI
   lager:info("Device ~p Auth response received", [Ipv6]),
   {ok, CallbackData#dds_pub_data{session_token = SessionToken}};
 on_receive(<<?DDS_MARKER, ?AUTH_RES, ?SESSION_TOKEN_SIZE:16, _SessionToken:?SESSION_TOKEN_SIZE/bytes>>,
-    _EndpointPid, #dds_pub_data{session_token = awaiting, endpoint_data = #endpoint_data{ipv6 = Ipv6}} = CallbackData)->
+    _EndpointPid, #dds_pub_data{session_token = awaiting, endpoint_data = #endpoint_data{ipv6 = Ipv6}})->
   lager:error("Device ~p Auth response received out of sync", [Ipv6]),
   {error, recv_out_of_sync};
 on_receive(<<?DDS_MARKER, ?SIGNAL_MSG, Size:16, _DdsPayload:Size/bytes, _Rest/binary>>,
@@ -73,14 +73,14 @@ on_receive(<<?DDS_MARKER, ?SIGNAL_MSG, Size:16, _DdsPayload:Size/bytes, _Rest/bi
   lager:error("Device ~p not ready to receive control messages, session token is still ~p", [Ipv6, SessionToken]),
   {error, not_ready}.
 
-receive_loop(TlsSocket, Parent, CallbackData0) ->
+receive_loop(TlsSocket, EndpointPid, CallbackData0) ->
   case erltls:recv(TlsSocket, 0) of
     {ok, Msg} ->
-      {ok, CallbackData1} = on_receive(Msg, CallbackData0),
-      xaptum_endpoint:set_data(Parent, CallbackData1), %% real time updates
-      receive_loop(TlsSocket, Parent, CallbackData1);
+      {ok, CallbackData1} = on_receive(Msg, EndpointPid, CallbackData0),
+      xaptum_endpoint:set_data(EndpointPid, CallbackData1), %% real time updates
+      receive_loop(TlsSocket, EndpointPid, CallbackData1);
     {error, Error} ->
-      xaptum_endpoint:ssl_error(Parent, TlsSocket, Error, CallbackData0)
+      xaptum_endpoint:ssl_error(EndpointPid, TlsSocket, Error, CallbackData0)
   end.
 
 on_send(Msg0, Dest, #dds_pub_data{
@@ -107,5 +107,5 @@ on_send(_Msg, #dds_pub_data{session_token = SessionToken}) when SessionToken =:=
 %%%===================================================================
 
 send_pub_auth_request(Ipv6, EndpointPid)->
-  DevInitRequest = build_init_pub_req(Ipv6),
+  DevInitRequest = ddslib:build_init_pub_req(Ipv6),
   xaptum_endpoint:send_request(EndpointPid, DevInitRequest).
