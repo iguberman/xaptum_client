@@ -11,7 +11,7 @@
 
 -behaviour(gen_server).
 
--include("../include/xtt_endpoint.hrl").
+-include("xtt_endpoint.hrl").
 -include_lib("erltls/include/erltls.hrl").
 
 %% API

@@ -1,11 +1,6 @@
 -ifndef('__xtt_endpoint_hrl__').
 -define('__xtt_endpoint_hrl__',true).
 
--include_lib("xtt_erlang/include/xtt.hrl").
-
--define(XTT_VERSION, ?XTT_VERSION_ONE).
--define(XTT_SUITE, ?XTT_X25519_LRSW_ED25519_AES256GCM_SHA512).
-
 -record(tpm_creds, {cred_dir, tpm_host, tpm_port, tpm_password}).
 
 -record(file_creds, {cred_dir}).

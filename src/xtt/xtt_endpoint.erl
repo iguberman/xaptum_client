@@ -9,8 +9,11 @@
 -module(xtt_endpoint).
 -author("iguberman").
 
--include("../../include/xtt_endpoint.hrl").
+-include("xtt_endpoint.hrl").
 -include_lib("xtt_erlang/include/xtt.hrl").
+
+-define(XTT_VERSION, ?XTT_VERSION_ONE).
+-define(XTT_SUITE, ?XTT_X25519_LRSW_ED25519_AES256GCM_SHA512).
 
 -behavior(xaptum_endpoint).
 

@@ -9,7 +9,7 @@
 -module(dds_pub).
 -author("iguberman").
 
--include("../../include/dds.hrl").
+-include("dds.hrl").
 
 -behavior(xaptum_endpoint).
 

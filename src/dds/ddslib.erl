@@ -29,7 +29,7 @@
 	 extract_mdxp_payload/1
 ]).
 
--include("../../include/dds.hrl").
+-include("dds.hrl").
 
 -define(TOKEN, <<"abcdefghijklmnopqrstuvwzyz1234567890ABCD">>).
 -define(TYPE, <<0>>).

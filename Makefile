@@ -49,6 +49,7 @@ testrel:
 test:	compile testrel
 	ct_run -dir $(BASEDIR)/ct -logdir $(BASEDIR)/ct/logs \
     	-pa $(BASEDIR)/_build/test/rel/$(APPNAME)/lib/*/ebin -erl_args \
+    	-include $(BASEDIR)/include \
     	-config $(BASEDIR)/_build/test/rel/$(APPNAME)/releases/$(APPVSN)/sys.config
 
 dialyzer: test
