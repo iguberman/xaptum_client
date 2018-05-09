@@ -43,7 +43,10 @@ subscriber-console: subscriber-release
 subscriber-tar: subscriber-release
 	$(REBAR) as subscriber tar
 
-test:	compile
+testrel:
+	$(REBAR) as test release
+
+test:	compile testrel
 	$(REBAR) ct --dir $(BASEDIR)/ct --include $(BASEDIR)/include --logdir $(BASEDIR)/ct/log
 
 dialyzer: test

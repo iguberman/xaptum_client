@@ -49,6 +49,8 @@ init([XttServer, XttPort]) ->
       restart => permanent,
       shutdown => 1000},
 
+  lager:info("Starting xaptum_endpoint_sup on ~p:~p", [XttServer, XttPort]),
+
   {ok, {RestartStrategy, [EndpointSpec]}}.
 
 %%====================================================================

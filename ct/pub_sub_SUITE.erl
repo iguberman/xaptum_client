@@ -32,7 +32,7 @@ end_per_suite(_Config) ->
 test_pub_sub(Config) ->
   DataDir = ?config(data_dir, Config),
   Creds = #file_creds{cred_dir = DataDir},
-  Queue = "$rr:Q1",
+  {ok, Queue} = application:get_env(xaptum_client, queue),
   {ok, Sub} = dds_sub:start(Creds, Queue),
   {ok, Pub} = dds_pub:start(Creds),
   %% this is probably too early

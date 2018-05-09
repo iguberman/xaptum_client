@@ -75,25 +75,21 @@ start_link() ->
 
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-    %% Restart Strategy
-    RestartStrategy = {one_for_one, 40, 3600},
+  %% Restart Strategy
+  RestartStrategy = {one_for_one, 40, 3600},
 
-    %% Create device/subscriber child spec
-    {ok, App} = get_application(),
-    {ok, Type} = get_env(App, type),
-    Child = bacnet_child_spec(Type),
+  {ok, XttHost} = application:get_env(xaptum_client, xaptum_host),
+  {ok, XttPort} = application:get_env(xaptum_client, xaptum_port),
+  lager:info("xtt_host ~p and xtt_port ~p", [XttHost, XttPort]),
 
-  {ok, XttHost} = application:get_env(xtt_host),
-  {ok, XttPort} = application:get_env(xtt_port),
-
-    EndpointSupervisorSpec =
-      #{id => xaptum_endpoint_sup,
+  EndpointSupervisorSpec =
+    #{id => xaptum_endpoint_sup,
       start => {xaptum_endpoint_sup, start_link, [XttHost, XttPort]},
       shutdown => 10000,
       type => supervisor},
 
     %% Create elli child spec
-    {ok, ElliPort} = get_env(App, stat_port), 
+    {ok, ElliPort} = application:get_env(stat_port),
     ElliOpts = [{callback, xaptum_client_http}, {port, ElliPort}],
     Elli = {
         xaptum_client_http,
@@ -103,7 +99,7 @@ init([]) ->
         worker,
         [elli]},
 
-    {ok, {RestartStrategy, [EndpointSupervisorSpec, Child, Elli]}}.
+    {ok, {RestartStrategy, [EndpointSupervisorSpec, Elli]}}.
 
 
 %% dds child spec
