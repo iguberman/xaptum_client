@@ -10,6 +10,7 @@
     lager,
     enacl,
     erltls,
+    xtt_erlang,
     elli,
     bacnet_utils
    ]},
