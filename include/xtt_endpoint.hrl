@@ -1,3 +1,5 @@
+-ifndef('__xtt_endpoint_hrl__').
+-define('__xtt_endpoint_hrl__',true).
 
 -include_lib("xtt_erlang/include/xtt.hrl").
 
@@ -11,3 +13,5 @@
 -record(xtt_creds, {identity, pseudonym, cert, key}).
 
 -record(endpoint_data, {ipv6, num_sent = 0, num_received = 0, num_reconnects = 0}).
+
+-endif.

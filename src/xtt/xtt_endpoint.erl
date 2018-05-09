@@ -54,18 +54,18 @@ auth(XttServerHost, XttServerPort,
   {ok, XttCreds, CallbackData#endpoint_data{ipv6 = Identity}}.
 
 
-on_receive(_Msg, _Parent, #endpoint_data{num_received = NumReceived} = CallbackData)->
+on_receive(_Msg, _EndpointPid, #endpoint_data{num_received = NumReceived} = CallbackData)->
   lager:debug("Calling ~p:on_receive", [?MODULE]),
   {ok, CallbackData#endpoint_data{num_received = NumReceived + 1}}.
 
-receive_loop(TlsSocket, Parent, CallbackData0) ->
+receive_loop(TlsSocket, EndpointPid, CallbackData0) ->
   case erltls:recv(TlsSocket, 0) of
     {ok, Msg} ->
-      {ok, CallbackData1} = on_receive(Msg, CallbackData0),
-      xaptum_endpoint:set_data(Parent, CallbackData1),
-      receive_loop(TlsSocket, Parent, CallbackData1);
+      {ok, CallbackData1} = on_receive(Msg, EndpointPid, CallbackData0),
+      xaptum_endpoint:set_data(EndpointPid, CallbackData1),
+      receive_loop(TlsSocket, EndpointPid, CallbackData1);
     {error, Error} ->
-      xaptum_endpoint:ssl_error(Parent, TlsSocket, Error, CallbackData0)
+      xaptum_endpoint:ssl_error(EndpointPid, TlsSocket, Error, CallbackData0)
   end.
 
 on_send(Msg, _Dest, #endpoint_data{num_received = NumSent} = CallbackData) ->
