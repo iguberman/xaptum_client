@@ -14,6 +14,8 @@
 -export([test_pub_sub/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("eunit/include/eunit.hrl").
+
 -include("../include/xtt_endpoint.hrl").
 -include("../include/dds.hrl").
 
