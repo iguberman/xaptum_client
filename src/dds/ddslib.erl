@@ -71,10 +71,15 @@ build_init_pub_req(Guid) ->
 build_init_sub_req(Guid, Queue) ->
     build_req(Guid, ?AUTH_SUB_REQ, Queue).
 
-build_reg_message(SessionToken, Message) ->
+build_reg_message(SessionToken, Message) when is_list(Message) ->
+  build_reg_message(SessionToken, list_to_binary(Message));
+build_reg_message(SessionToken, Message) when is_binary(Message) ->
     build_message(SessionToken, ?REG_MSG, Message).
 
-build_control_message(SessionToken, Message) ->
+
+build_control_message(SessionToken, Message) when is_list(Message) ->
+  build_control_message(SessionToken, list_to_binary(Message));
+build_control_message(SessionToken, Message) when is_binary(Message) ->
     build_message(SessionToken, ?SIGNAL_MSG, Message).
 
 recv(Client) ->

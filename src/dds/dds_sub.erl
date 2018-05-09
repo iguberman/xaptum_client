@@ -63,6 +63,7 @@ on_receive(<<?DDS_MARKER, ?REG_MSG, Size:16, _DdsPayload:Size/bytes, _Rest/binar
     EndpointPid, #dds_sub_data{session_token = SessionToken,
       endpoint_data = EndpointData0} = CallbackData) when is_binary(SessionToken)->
   {ok, EndpointData1} = ?SUPERCLASS:on_receive(Msg, EndpointPid, EndpointData0),
+  lager:info("Reg msg received: ~p", [Msg]),
   {ok, CallbackData#dds_sub_data{endpoint_data = EndpointData1}};
 on_receive(<<?DDS_MARKER, ?AUTH_RES, ?SESSION_TOKEN_SIZE:16, SessionToken:?SESSION_TOKEN_SIZE/bytes>>,
     _EndpointPid, #dds_sub_data{session_token = awaiting} = CallbackData)->

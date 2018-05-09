@@ -17,7 +17,8 @@
 %% Supervisor callbacks
 -export([
   init/1,
-  num_children/0]).
+  num_children/0,
+  create_endpoint/3]).
 
 -define(SERVER, ?MODULE).
 
@@ -30,6 +31,10 @@ start_link(XttServer, XttPort) ->
 
 num_children()->
   supervisor:count_children(?MODULE).
+
+create_endpoint(CallbackModule, CallbackData, Creds)->
+  %% calls xaptum_endpoint:start_link(XttServer, XttPort, CallbackModule, CallbackData)
+  supervisor:start_child(?MODULE, [CallbackModule, CallbackData, Creds]).
 
 %%====================================================================
 %% Supervisor callbacks
@@ -45,10 +50,6 @@ init([XttServer, XttPort]) ->
       shutdown => 1000},
 
   {ok, {RestartStrategy, [EndpointSpec]}}.
-
-create_endpoint(CallbackModule, CallbackData, Creds)->
-  %% calls xaptum_endpoint:start_link(XttServer, XttPort, CallbackModule, CallbackData)
-  supervisor:start_child(?MODULE, [CallbackModule, CallbackData, Creds]).
 
 %%====================================================================
 %% Internal functions

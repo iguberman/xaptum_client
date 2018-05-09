@@ -83,6 +83,15 @@ init([]) ->
     {ok, Type} = get_env(App, type),
     Child = bacnet_child_spec(Type),
 
+  {ok, XttHost} = application:get_env(xtt_host),
+  {ok, XttPort} = application:get_env(xtt_port),
+
+    EndpointSupervisorSpec =
+      #{id => xaptum_endpoint_sup,
+      start => {xaptum_endpoint_sup, start_link, [XttHost, XttPort]},
+      shutdown => 10000,
+      type => supervisor},
+
     %% Create elli child spec
     {ok, ElliPort} = get_env(App, stat_port), 
     ElliOpts = [{callback, xaptum_client_http}, {port, ElliPort}],
@@ -94,7 +103,7 @@ init([]) ->
         worker,
         [elli]},
 
-    {ok, {RestartStrategy, [Child, Elli]}}.
+    {ok, {RestartStrategy, [EndpointSupervisorSpec, Child, Elli]}}.
 
 
 %% dds child spec

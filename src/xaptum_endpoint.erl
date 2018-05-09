@@ -68,10 +68,10 @@ send_request(EndpointPid, Request)->
   gen_server:cast(EndpointPid, {send_request, Request}).
 
 send_message(EndpointPid, Msg, Dest)->
-  gen_server:cast(EndpointPid, {send, Msg, Dest}).
+  gen_server:cast(EndpointPid, {send_message, Msg, Dest}).
 
 send_message(EndpointPid, Msg)->
-  gen_server:cast(EndpointPid, {send, Msg}).
+  gen_server:cast(EndpointPid, {send_message, Msg}).
 
 start_receiving(EndpointPid)->
   gen_server:cast(EndpointPid, start_receiving).
@@ -102,20 +102,9 @@ init([XaptumHost, XaptumPort, CallbackModule, CallbackData, Creds]) ->
     callback_module = CallbackModule, callback_data = CallbackData,
     xaptum_host = XaptumHost, xaptum_port = XaptumPort}}.
 
-handle_call(_Request, _From, State) ->
-  {reply, ok, State}.
+handle_call(get_data, _From, #state{callback_data = CallbackData} = State) ->
+  {reply, CallbackData, State}.
 
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%% Handling cast messages
-%%
-%% @end
-%%--------------------------------------------------------------------
--spec(handle_cast(Request :: term(), State :: #state{}) ->
-  {noreply, NewState :: #state{}} |
-  {noreply, NewState :: #state{}, timeout() | hibernate} |
-  {stop, Reason :: term(), NewState :: #state{}}).
 handle_cast({auth, Creds}, #state{
   callback_module = CallbackModule, callback_data = CallbackData0,
   xaptum_host = XaptumHost, xaptum_port = XaptumPort} = State) ->
@@ -190,9 +179,6 @@ handle_cast({ssl_error, _Error}, #state{tls_socket = #tlssocket{tcp_sock = TcpSo
 
 handle_cast({set_data, NewData}, State)->
   {noreply, State#state{callback_data = NewData}}.
-
-handle_call(get_data, _From, #state{callback_data = CallbackData} = State) ->
-  {reply, CallbackData, State}.
 
 %% Handle {active, [once|N]} mode
 handle_info({ssl, TlsSocket, Msg}, #state{tls_socket = TlsSocket, callback_module = CallbackModule, callback_data = CallbackData0} = State) ->
