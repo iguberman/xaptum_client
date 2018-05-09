@@ -99,7 +99,7 @@ init([]) ->
         worker,
         [elli]},
 
-    {ok, {RestartStrategy, [EndpointSupervisorSpec, Elli]}}.
+    {ok, {RestartStrategy, [EndpointSupervisorSpec]}}.
 
 
 %% dds child spec

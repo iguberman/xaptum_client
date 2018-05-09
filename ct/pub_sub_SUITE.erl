@@ -16,8 +16,8 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--include("xtt_endpoint.hrl").
--include("dds.hrl").
+-include_lib("xaptum_client/include/xtt_endpoint.hrl").
+-include_lib("xaptum_client/include/dds.hrl").
 
 all() -> [test_pub_sub].
 

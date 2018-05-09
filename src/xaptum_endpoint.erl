@@ -112,7 +112,7 @@ handle_cast({auth, Creds}, #state{
   {#xtt_creds{identity = Identity,
     pseudonym = Pseudonym,
     cert = Cert,
-    key = Key}, CallbackData1} = CallbackModule:auth(XaptumHost, XaptumPort, Creds, self(), CallbackData0),
+    key = Key}, CallbackData1} = CallbackModule:auth(XaptumHost, XaptumPort, Creds, CallbackData0),
   gen_server:cast(self(), connect, State),
   register(binary_to_atom(Identity, utf8), self()),
   {noreply, State#state{ipv6 = Identity, pseudonym = Pseudonym, cert = Cert, key = Key, callback_data = CallbackData1}};
