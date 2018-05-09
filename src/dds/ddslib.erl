@@ -29,27 +29,13 @@
 	 extract_mdxp_payload/1
 ]).
 
+-include("../../include/dds.hrl").
+
 -define(TOKEN, <<"abcdefghijklmnopqrstuvwzyz1234567890ABCD">>).
 -define(TYPE, <<0>>).
 -define(TOTAL, 10).
 -define(DELAY, 200).
 
--define(DDS_MARKER, 120).
-
--define(NOOP, 0).
--define(ACT_REQ, 18).
--define(ACT_RES, 146).
-
--define(AUTH_EMP_REQ, 64).
--define(AUTH_REG_REQ, 80).
--define(AUTH_OBB_REQ, 112).
--define(AUTH_SUB_REQ, 88).
--define(AUTH_RES, 208).
-
--define(OBB_MSG, 48).
--define(REG_MSG, 16).
-
--define(SIGNAL_MSG, 148).
 %%-define(MB_HOST, "broker.xaptum.net").
 -define(MB_HOST, {192,168,1,10}).
 

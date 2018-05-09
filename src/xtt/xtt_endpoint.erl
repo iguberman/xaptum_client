@@ -9,70 +9,78 @@
 -module(xtt_endpoint).
 -author("iguberman").
 
--include("xtt_endpoint.hrl").
+-include("../../include/xtt_endpoint.hrl").
 -include_lib("xtt_erlang/include/xtt.hrl").
 
 -behavior(xaptum_endpoint).
 
 %% API
+-export([start/1]).
 
 %% xaptum_endpoint callbacks
 -export([
   auth/4,
   on_receive/3,
   receive_loop/3,
+  on_send/2,
   on_send/3,
-  on_send/4,
-  on_disconnect/2,
   on_connect/2,
   on_reconnect/2,
   on_disconnect/2
 ]).
+
+start(Creds)->
+  xaptum_endpoint_sup:create_endpoint(?MODULE, #endpoint_data{}, Creds).
+
 
 %%%===================================================================
 %%% xaptum_endpoint callbacks
 %%%===================================================================
 
 auth(XttServerHost, XttServerPort,
-    #tpm_creds{cred_dir = CredDir, tpm_host = TpmHost, tpm_port = TpmPort, tpm_password = TpmPassword}, _CallbackData)->
+    #tpm_creds{cred_dir = CredDir, tpm_host = TpmHost, tpm_port = TpmPort, tpm_password = TpmPassword}, CallbackData)->
   {ok, GroupContextInputs} = xtt_utils:group_context_inputs_tpm(CredDir, ?BASENAME_FILE, TpmHost, TpmPort, TpmPassword),
-  do_handshake(GroupContextInputs, CredDir, XttServerHost, XttServerPort, _CallbackData);
+  {ok, #xtt_creds{identity = Identity} = XttCreds} = do_handshake(GroupContextInputs, CredDir, XttServerHost, XttServerPort),
+  {ok, XttCreds, CallbackData#endpoint_data{ipv6 = Identity}};
 auth(XttServerHost, XttServerPort,
-    #file_creds{cred_dir = CredDir}, _CallbackData)->
+    #file_creds{cred_dir = CredDir}, CallbackData)->
   {ok, GroupContextInputs} = xtt_utils:group_context_inputs(CredDir,
     ?BASENAME_FILE,
     ?DAA_GPK_FILE,
     ?DAA_CRED_FILE,
     ?DAA_SECRETKEY_FILE,
     ?ROOT_ID_FILE, ?ROOT_PUBKEY_FILE),
-  do_handshake(GroupContextInputs, CredDir, XttServerHost, XttServerPort, _CallbackData).
+  {ok, #xtt_creds{identity = Identity} = XttCreds} = do_handshake(GroupContextInputs, CredDir, XttServerHost, XttServerPort),
+  {ok, XttCreds, CallbackData#endpoint_data{ipv6 = Identity}}.
 
 
 on_receive(_Msg, _Parent, #endpoint_data{num_received = NumReceived} = CallbackData)->
+  lager:debug("Calling ~p:on_receive", [?MODULE]),
   {ok, CallbackData#endpoint_data{num_received = NumReceived + 1}}.
 
 receive_loop(TlsSocket, Parent, CallbackData0) ->
   case erltls:recv(TlsSocket, 0) of
     {ok, Msg} ->
-      {ok, CallbackData1} = on_receive(Msg, Parent, CallbackData0),
+      {ok, CallbackData1} = on_receive(Msg, CallbackData0),
       xaptum_endpoint:set_data(Parent, CallbackData1),
       receive_loop(TlsSocket, Parent, CallbackData1);
     {error, Error} ->
       xaptum_endpoint:ssl_error(Parent, TlsSocket, Error, CallbackData0)
   end.
 
-on_send(Msg, _Dest, _Parent, #endpoint_data{num_received = NumSent} = CallbackData) ->
+on_send(Msg, _Dest, #endpoint_data{num_received = NumSent} = CallbackData) ->
   {Msg, CallbackData#endpoint_data{num_sent = NumSent + 1}}.
 
-on_send(Msg, _Parent, #endpoint_data{num_received = NumSent} = CallbackData) ->
+on_send(Msg, #endpoint_data{num_sent = NumSent} = CallbackData) ->
   {Msg, CallbackData#endpoint_data{num_sent = NumSent + 1}}.
 
-on_connect(_Parent, CallbackData) -> {ok, CallbackData}.
+on_connect(_EndpointPid, CallbackData) ->
+  {ok, CallbackData}.
 
-on_reconnect(_Parent, #endpoint_data{num_reconnects = Reconnects} = CallbackData) ->
+on_reconnect(_EndpointPid, #endpoint_data{num_reconnects = Reconnects} = CallbackData) ->
   {ok, CallbackData#endpoint_data{num_reconnects = Reconnects + 1}}.
 
-on_disconnect(_Parent, CallbackData) ->
+on_disconnect(_EndpointPid, CallbackData) ->
   {ok, CallbackData}.
 
 
@@ -80,7 +88,7 @@ on_disconnect(_Parent, CallbackData) ->
 %%% internal functions
 %%%===================================================================
 
-do_handshake(GroupContextInputs, CredDir, XttServerHost, XttServerPort, _CallbackData)->
+do_handshake(GroupContextInputs, CredDir, XttServerHost, XttServerPort)->
   {RequestedClientId, IntendedServerId} =
     xtt_utils:initialize_ids(CredDir, ?REQUESTED_CLIENT_ID_FILE, ?SERVER_ID_FILE),
   {ok, Pid} = xtt_handshake:start_link(
