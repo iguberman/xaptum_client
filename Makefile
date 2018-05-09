@@ -47,7 +47,9 @@ testrel:
 	$(REBAR) as test release
 
 test:	compile testrel
-	$(REBAR) ct --dir $(BASEDIR)/ct --include $(BASEDIR)/include --logdir $(BASEDIR)/ct/log
+	ct_run -dir $(BASEDIR)/ct -logdir $(BASEDIR)/ct/logs \
+    	-pa $(BASEDIR)/_build/test/rel/$(APPNAME)/lib/*/ebin -erl_args \
+    	-config $(BASEDIR)/_build/test/rel/$(APPNAME)/releases/$(APPVSN)/sys.config
 
 dialyzer: test
 	$(REBAR) dialyzer
