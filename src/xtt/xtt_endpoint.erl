@@ -94,7 +94,7 @@ on_disconnect(_EndpointPid, CallbackData) ->
 do_handshake(GroupContextInputs, CredDir, XttServerHost, XttServerPort)->
   {RequestedClientId, IntendedServerId} =
     xtt_utils:initialize_ids(CredDir, ?REQUESTED_CLIENT_ID_FILE, ?SERVER_ID_FILE),
-  {ok, Pid} = xtt_handshake:start_link(
+  {ok, Pid} = xtt_handshake:start_handshake(
     XttServerHost, XttServerPort,
     RequestedClientId, IntendedServerId,
     ?XTT_VERSION, ?XTT_SUITE,
