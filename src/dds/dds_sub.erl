@@ -70,7 +70,7 @@ on_receive(<<?DDS_MARKER, ?AUTH_RES, ?SESSION_TOKEN_SIZE:16, SessionToken:?SESSI
   lager:info("Subscriber auth response received"),
   {ok, CallbackData#dds_sub_data{session_token = SessionToken}};
 on_receive(<<?DDS_MARKER, ?AUTH_RES, ?SESSION_TOKEN_SIZE:16, _RespSessionToken:?SESSION_TOKEN_SIZE/bytes>>,
-    _EndpointPid, #dds_sub_data{session_token = SessionToken} = CallbackData)
+    _EndpointPid, #dds_sub_data{session_token = SessionToken})
     when is_binary(SessionToken); SessionToken =:= undefined ->
   lager:error("Subscriber auth response received out of sync: session token ~p, should be 'awaiting'", [SessionToken]),
   {error, recv_out_of_sync};
@@ -80,14 +80,14 @@ on_receive(<<?DDS_MARKER, ?REG_MSG, Size:16, _DdsPayload:Size/bytes, _Rest/binar
   lager:error("Subscriber not ready to receive messages: session token should be assigned, but is ~p", [SessionToken]),
   {error, not_ready}.
 
-receive_loop(TlsSocket, Parent, CallbackData0) ->
+receive_loop(TlsSocket, EndpointPid, CallbackData0) ->
   case erltls:recv(TlsSocket, 0) of
     {ok, Msg} ->
-      {ok, CallbackData1} = on_receive(Msg, CallbackData0),
-      xaptum_endpoint:set_data(Parent, CallbackData1), %% real time updates, could be batched if needed
-      receive_loop(TlsSocket, Parent, CallbackData1);
+      {ok, CallbackData1} = on_receive(Msg, EndpointPid, CallbackData0),
+      xaptum_endpoint:set_data(EndpointPid, CallbackData1), %% real time updates, could be batched if needed
+      receive_loop(TlsSocket, EndpointPid, CallbackData1);
     {error, Error} ->
-      xaptum_endpoint:ssl_error(Parent, TlsSocket, Error, CallbackData0)
+      xaptum_endpoint:ssl_error(EndpointPid, TlsSocket, Error, CallbackData0)
   end.
 
 on_send(Msg0, Dest, #dds_sub_data{
@@ -114,5 +114,5 @@ on_send(_Msg, #dds_sub_data{session_token = SessionToken}) when SessionToken =:=
 %%%===================================================================
 
 send_sub_auth_request(Ipv6, Queue, EndpointPid)->
-  SubInitRequest = build_init_sub_req(Ipv6, Queue),
+  SubInitRequest = ddslib:build_init_sub_req(Ipv6, Queue),
   xaptum_endpoint:send_request(EndpointPid, SubInitRequest).
