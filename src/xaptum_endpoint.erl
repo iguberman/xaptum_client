@@ -15,7 +15,7 @@
 -include_lib("erltls/include/erltls.hrl").
 
 %% API
--export([start_link/5,
+-export([start_link/6,
   send_message/2,
   send_message/3,
   send_request/2,
@@ -88,9 +88,9 @@ ssl_error(EndpointPid, Error) ->
 disconnect(EndpointPid) ->
   gen_server:stop(EndpointPid).
 
-start_link(CallbackModule, CallbackData, Creds, XaptumHost, XaptumPort) ->
+start_link(CallbackModule, CallbackData, Creds, XaptumHost, XttPort, TlsPort) ->
   %% This endpoint is unregistered until a later point when it gets an identity assigned
-  gen_server:start_link(?MODULE, [CallbackModule, CallbackData, Creds, XaptumHost, XaptumPort], []).
+  gen_server:start_link(?MODULE, [CallbackModule, CallbackData, Creds, XaptumHost, XttPort, TlsPort], []).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -141,7 +141,7 @@ handle_cast(connect, #state{
       {ok, CallbackData1} = CallbackModule:on_reconnect(CallbackData0)
   end,
 
-  {noreply, State#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
+  {noreply, sState#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
 
 handle_cast({send_message, {Payload, Dest}}, #state{
   tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket,
