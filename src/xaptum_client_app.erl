@@ -78,13 +78,14 @@ init([]) ->
   %% Restart Strategy
   RestartStrategy = {one_for_one, 40, 3600},
 
-  {ok, XttHost} = application:get_env(xaptum_client, xaptum_host),
-  {ok, XttPort} = application:get_env(xaptum_client, xaptum_port),
-  lager:info("xtt_host ~p and xtt_port ~p", [XttHost, XttPort]),
+  {ok, XaptumHost} = application:get_env(xaptum_client, xaptum_host),
+  {ok, TlsPort} = application:get_env(xaptum_client, tls_port),
+  {ok, XttPort} = application:get_env(xaptum_client, xtt_port),
+  lager:info("xtt_host ~p and xtt_port ~p", [XaptumHost, XttPort, TlsPort]),
 
   EndpointSupervisorSpec =
     #{id => xaptum_endpoint_sup,
-      start => {xaptum_endpoint_sup, start_link, [XttHost, XttPort]},
+      start => {xaptum_endpoint_sup, start_link, [XaptumHost, XttPort, TlsPort]},
       shutdown => 10000,
       type => supervisor},
 

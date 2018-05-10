@@ -37,7 +37,7 @@
 -define(SERVER, ?MODULE).
 
 -record(state, {
-  xaptum_host, xaptum_port,
+  xaptum_host, xtt_port, tls_port,
   ipv6, pseudonym, cert, key, tls_socket,
   callback_data, callback_module,
   receiver_pid}).
@@ -96,23 +96,23 @@ start_link(CallbackModule, CallbackData, Creds, XaptumHost, XaptumPort) ->
 %%% gen_server callbacks
 %%%===================================================================
 
-init([XaptumHost, XaptumPort, CallbackModule, CallbackData, Creds]) ->
+init([XaptumHost, XttPort, TlsPort, CallbackModule, CallbackData, Creds]) ->
   gen_server:cast(self(), {auth, Creds}),
   {ok, #state{
     callback_module = CallbackModule, callback_data = CallbackData,
-    xaptum_host = XaptumHost, xaptum_port = XaptumPort}}.
+    xaptum_host = XaptumHost, xtt_port = XttPort, tls_port = TlsPort}}.
 
 handle_call(get_data, _From, #state{callback_data = CallbackData} = State) ->
   {reply, CallbackData, State}.
 
 handle_cast({auth, Creds}, #state{
   callback_module = CallbackModule, callback_data = CallbackData0,
-  xaptum_host = XaptumHost, xaptum_port = XaptumPort} = State) ->
+  xaptum_host = XaptumHost, xtt_port = XttPort} = State) ->
   %% TODO currently xtt is the only way, we'll have to add a level of abstraction later
   {#xtt_creds{identity = Identity,
     pseudonym = Pseudonym,
     cert = Cert,
-    key = Key}, CallbackData1} = CallbackModule:auth(XaptumHost, XaptumPort, Creds, CallbackData0),
+    key = Key}, CallbackData1} = CallbackModule:auth(XaptumHost, XttPort, Creds, CallbackData0),
   gen_server:cast(self(), connect, State),
   register(binary_to_atom(Identity, utf8), self()),
   {noreply, State#state{ipv6 = Identity, pseudonym = Pseudonym, cert = Cert, key = Key, callback_data = CallbackData1}};
@@ -120,9 +120,9 @@ handle_cast({auth, Creds}, #state{
 handle_cast(connect, #state{
   tls_socket = MaybeExistingTlsSocket,
   callback_module = CallbackModule, callback_data = CallbackData0,
-  xaptum_host = XaptumHost, xaptum_port = XaptumPort, cert = Cert, key = Key} = State)
+  xaptum_host = XaptumHost, tls_port = TlsPort, cert = Cert, key = Key} = State)
     when is_binary(Cert), is_binary(Key)->
-  {ok, TlsSocket} = erltls:connect(XaptumHost, XaptumPort,
+  {ok, TlsSocket} = erltls:connect(XaptumHost, TlsPort,
     [binary,
       {active, false}, %% TODO make configurable
       {reuseaddr, true},

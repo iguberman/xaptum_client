@@ -26,8 +26,8 @@
 %%% API functions
 %%%===================================================================
 
-start_link(XttServer, XttPort) ->
-  supervisor:start_link({local, ?SERVER}, ?MODULE, [XttServer, XttPort]).
+start_link(XaptumHost, XttPort, TlsPort) ->
+  supervisor:start_link({local, ?SERVER}, ?MODULE, [XaptumHost, XttPort, TlsPort]).
 
 num_children()->
   supervisor:count_children(?MODULE).
@@ -40,16 +40,16 @@ create_endpoint(CallbackModule, CallbackData, Creds)->
 %% Supervisor callbacks
 %%====================================================================
 
-init([XttServer, XttPort]) ->
+init([XaptumHost, XttPort, TlsPort]) ->
   RestartStrategy = {simple_one_for_one, 60, 3600},
 
   EndpointSpec =
     #{id => xaptum_endpoint,
-      start => {xaptum_endpoint, start_link, [XttServer, XttPort]},
+      start => {xaptum_endpoint, start_link, [XaptumHost, XttPort, TlsPort]},
       restart => permanent,
       shutdown => 1000},
 
-  lager:info("Starting xaptum_endpoint_sup on ~p:~p", [XttServer, XttPort]),
+  lager:info("Starting xaptum_endpoint_sup on ~p:~p,~p", [XaptumHost, XttPort, TlsPort]),
 
   {ok, {RestartStrategy, [EndpointSpec]}}.
 
