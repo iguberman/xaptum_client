@@ -121,4 +121,4 @@ get_creds_from_xtt_context (HandshakeContext)->
 
   lager:info("LongTermPrivKeyAsn1 ~p", [PrivKeyAsn1]),
 
-  {ok, #xtt_creds{identity = Identity, pseudonym = Pseudonym, cert = CertAsn1, key = LongTermPrivKey}}.
+  {ok, #xtt_creds{identity = Identity, pseudonym = Pseudonym, cert = CertAsn1, key = PrivKeyAsn1}}.
