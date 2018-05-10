@@ -54,10 +54,11 @@ on_reconnect(EndpointPid, #dds_pub_data{
 
 on_disconnect(_EndpointPid, CallbackData) -> {ok, CallbackData}.
 
-on_receive(<<?DDS_MARKER, ?REG_MSG, Size:16, _DdsPayload:Size/bytes, _Rest/binary>> = Msg,
+on_receive(<<?DDS_MARKER, ?SIGNAL_MSG, Size:16, _DdsPayload:Size/bytes, _Rest/binary>> = Msg,
     EndpointPid, #dds_pub_data{session_token = SessionToken,
       endpoint_data = EndpointData0} = CallbackData) when is_binary(SessionToken)->
   {ok, EndpointData1} = ?SUPERCLASS:on_receive(Msg, EndpointPid, EndpointData0),
+  lager:info("Control message ~p received by ~p", [Msg, EndpointPid]),
   {ok, CallbackData#dds_pub_data{endpoint_data = EndpointData1}};
 on_receive(<<?DDS_MARKER, ?AUTH_RES, ?SESSION_TOKEN_SIZE:16, SessionToken:?SESSION_TOKEN_SIZE/bytes>>,
     _EndpointPid, #dds_pub_data{session_token = awaiting, endpoint_data = #endpoint_data{ipv6 = Ipv6}} = CallbackData)->
@@ -88,7 +89,7 @@ on_send(Msg0, Dest, #dds_pub_data{
   endpoint_data = EndpointData0} = CallbackData) when is_binary(SessionToken)->
   {Msg1, EndpointData1} = ?SUPERCLASS:on_send(Msg0, Dest, EndpointData0), %% Oh-bject Oh-riented programming
   Msg2 = ddslib:build_reg_message(SessionToken, Msg1),
-  {Msg2, CallbackData#dds_pub_data{endpoint_data = EndpointData1} };
+  {ok, Msg2, CallbackData#dds_pub_data{endpoint_data = EndpointData1} };
 on_send(_Msg, _Dest, #dds_pub_data{session_token = SessionToken})
   when SessionToken =:= undefined; SessionToken =:= awaiting ->
   lager:error("Can't send reg message when session token is still ~p! Try again later", [SessionToken]),
@@ -97,7 +98,7 @@ on_send(_Msg, _Dest, #dds_pub_data{session_token = SessionToken})
 on_send(Msg0, #dds_pub_data{session_token = SessionToken, endpoint_data = EndpointData0} = CallbackData) when is_binary(SessionToken)->
   {Msg1, EndpointData1} = ?SUPERCLASS:on_send(Msg0, EndpointData0),
   Msg2 = ddslib:build_reg_message(SessionToken, Msg1),
-  {Msg2, CallbackData#dds_pub_data{endpoint_data = EndpointData1} };
+  {ok, Msg2, CallbackData#dds_pub_data{endpoint_data = EndpointData1} };
 on_send(_Msg, #dds_pub_data{session_token = SessionToken}) when SessionToken =:= undefined; SessionToken =:= awaiting ->
   lager:error("Can't send reg message when session token is still ~p! Try again later", [SessionToken]),
   {error, retry_later}.

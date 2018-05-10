@@ -48,9 +48,9 @@
 -callback on_receive(Msg :: binary(), EndpointPid :: pid(), CallbackData :: any()) -> {ok, CallbackData :: any()}.
 -callback receive_loop(TlsSocket :: tuple(), EndpointPid :: pid(), CallbackData :: any()) -> ok.
 -callback on_send(Msg :: binary(), Dest :: any(), CallbackData :: any()) ->
-  {Msg :: binary(), CallbackData :: any()}.
+  {ok, Msg :: binary(), CallbackData :: any()}.
 -callback on_send(Msg :: binary(), CallbackData :: any()) ->
-  {Msg :: binary(), CallbackData :: any()}.
+  {ok, Msg :: binary(), CallbackData :: any()}.
 -callback on_disconnect(EndpointPid :: pid(), CallbackData :: any()) -> {ok, CallbackData :: any}.
 -callback on_connect(EndpointPid :: pid(), CallbackData :: any()) -> {ok, CallbackData :: any()}.
 -callback on_reconnect(EndpointPid :: pid(), CallbackData :: any()) -> {ok, Callbackdata :: any()}.
@@ -147,23 +147,28 @@ handle_cast(connect, #state{
 
   {noreply, State#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
 
-handle_cast({send_message, {Payload, Dest}}, #state{
+handle_cast({send_message, Payload, Dest}, #state{
   tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket,
   callback_module = CallbackModule, callback_data = CallbackData0} = State)
-    when is_port(TcpSocket), is_pid(SslPid) ->
-  {Message, CallbackData1} = CallbackModule:on_send(Payload, Dest, self(), CallbackData0),
-  lager:info("Sending message ~p to ~p", [Message, Dest]),
-  erltls:send(TlsSocket, Message),
-  {noreply, State#state{callback_data = CallbackData1}};
-
+  when is_port(TcpSocket), is_pid(SslPid) ->
+  case CallbackModule:on_send(Payload, Dest, self(), CallbackData0) of
+    {error, retry_later} -> {noreply, CallbackData0};
+    {ok, Message, CallbackData1} ->
+      lager:info("Sending message ~p to ~p", [Message, Dest]),
+      erltls:send(TlsSocket, Message),
+      {noreply, State#state{callback_data = CallbackData1}}
+  end;
 handle_cast({send_message, Payload}, #state{
   tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket,
   callback_module = CallbackModule, callback_data = CallbackData0} = State)
     when is_port(TcpSocket), is_pid(SslPid) ->
-  {Message, CallbackData1} = CallbackModule:on_send(Payload, self(), CallbackData0),
-  lager:info("Sending message ~p", [Message]),
-  erltls:send(TlsSocket, Message),
-  {noreply, State#state{callback_data = CallbackData1}};
+  case CallbackModule:on_send(Payload, self(), CallbackData0) of
+    {error, retry_later} -> {noreply, CallbackData0};
+    {ok, Message, CallbackData1} ->
+      lager:info("Sending message ~p to ~p", [Message]),
+      erltls:send(TlsSocket, Message),
+      {noreply, State#state{callback_data = CallbackData1}}
+  end;
 handle_cast({send_request, Request}, #state{
   tls_socket = #tlssocket{} = TlsSocket} = State)->
   lager:info("Sending request ~p", [Request]),

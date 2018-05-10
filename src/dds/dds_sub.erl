@@ -63,7 +63,7 @@ on_receive(<<?DDS_MARKER, ?REG_MSG, Size:16, _DdsPayload:Size/bytes, _Rest/binar
     EndpointPid, #dds_sub_data{session_token = SessionToken,
       endpoint_data = EndpointData0} = CallbackData) when is_binary(SessionToken)->
   {ok, EndpointData1} = ?SUPERCLASS:on_receive(Msg, EndpointPid, EndpointData0),
-  lager:info("Reg msg received: ~p", [Msg]),
+  lager:info("Reg msg ~p received by ~p", [Msg, EndpointPid]),
   {ok, CallbackData#dds_sub_data{endpoint_data = EndpointData1}};
 on_receive(<<?DDS_MARKER, ?AUTH_RES, ?SESSION_TOKEN_SIZE:16, SessionToken:?SESSION_TOKEN_SIZE/bytes>>,
     _EndpointPid, #dds_sub_data{session_token = awaiting} = CallbackData)->
@@ -95,7 +95,7 @@ on_send(Msg0, Dest, #dds_sub_data{
   endpoint_data = EndpointData0} = CallbackData) when is_binary(SessionToken)->
   {Msg1, EndpointData1} = ?SUPERCLASS:on_send(Msg0, Dest, EndpointData0),
   Msg2 = ddslib:build_control_message(SessionToken, Msg1),
-  {Msg2, CallbackData#dds_sub_data{endpoint_data = EndpointData1} };
+  {ok, Msg2, CallbackData#dds_sub_data{endpoint_data = EndpointData1} };
 on_send(_Msg, _Dest, #dds_sub_data{session_token = SessionToken}) when SessionToken =:= undefined; SessionToken =:= awaiting ->
   lager:error("Can't send control message from subscriber that's not yet been activated! Try again later"),
   {error, retry_later}.
@@ -104,7 +104,7 @@ on_send(_Msg, _Dest, #dds_sub_data{session_token = SessionToken}) when SessionTo
 on_send(Msg0, #dds_sub_data{session_token = SessionToken, endpoint_data = EndpointData0} = CallbackData) when is_binary(SessionToken)->
   {Msg1, EndpointData1} = ?SUPERCLASS:on_send(Msg0, EndpointData0),
   Msg2 = ddslib:build_reg_message(SessionToken, Msg1),
-  {Msg2, CallbackData#dds_sub_data{endpoint_data = EndpointData1} };
+  {ok, Msg2, CallbackData#dds_sub_data{endpoint_data = EndpointData1} };
 on_send(_Msg, #dds_sub_data{session_token = SessionToken}) when SessionToken =:= undefined; SessionToken =:= awaiting ->
   lager:error("Can't send message from device that's not yet been activated! Try again later"),
   {error, retry_later}.

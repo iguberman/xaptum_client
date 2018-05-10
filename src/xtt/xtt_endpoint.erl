@@ -72,10 +72,10 @@ receive_loop(TlsSocket, EndpointPid, CallbackData0) ->
   end.
 
 on_send(Msg, _Dest, #endpoint_data{num_received = NumSent} = CallbackData) ->
-  {Msg, CallbackData#endpoint_data{num_sent = NumSent + 1}}.
+  {ok, Msg, CallbackData#endpoint_data{num_sent = NumSent + 1}}.
 
 on_send(Msg, #endpoint_data{num_sent = NumSent} = CallbackData) ->
-  {Msg, CallbackData#endpoint_data{num_sent = NumSent + 1}}.
+  {ok, Msg, CallbackData#endpoint_data{num_sent = NumSent + 1}}.
 
 on_connect(_EndpointPid, CallbackData) ->
   {ok, CallbackData}.
