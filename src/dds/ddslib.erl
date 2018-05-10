@@ -117,7 +117,7 @@ convert_to_xcr_ipv6(Identity) ->
   Ipv6Str = xtt_utils:identity_to_ipv6_str(Identity),
   lists:flatten(string:replace(Ipv6Str, ":", "", all)).
 
-curl_identity_to_xcr(Identity, Type) when Type =:= "D", Type =:= "S" ->
+curl_identity_to_xcr(Identity, Type) when Type =:= "D"; Type =:= "S" ->
   {ok, XcrHost} = application:get_env(xaptum_client, xcr_host),
   AssignedIp = convert_to_xcr_ipv6(Identity),
   Cmd = "curl -X POST -H \"Content-Type: application/json\" http://" ++ XcrHost ++ ":9090/api/xcr/v2/ephook/" ++ AssignedIp ++ "/" ++ Type,
