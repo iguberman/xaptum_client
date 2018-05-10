@@ -109,13 +109,17 @@ handle_cast({auth, Creds}, #state{
   callback_module = CallbackModule, callback_data = CallbackData0,
   xaptum_host = XaptumHost, xtt_port = XttPort} = State) ->
   %% TODO currently xtt is the only way, we'll have to add a level of abstraction later
-  {#xtt_creds{identity = Identity,
-    pseudonym = Pseudonym,
-    cert = Cert,
-    key = Key}, CallbackData1} = CallbackModule:auth(XaptumHost, XttPort, Creds, CallbackData0),
-  gen_server:cast(self(), connect, State),
-  register(binary_to_atom(Identity, utf8), self()),
-  {noreply, State#state{ipv6 = Identity, pseudonym = Pseudonym, cert = Cert, key = Key, callback_data = CallbackData1}};
+  AuthResult = CallbackModule:auth(XaptumHost, XttPort, Creds, CallbackData0),
+  lager:info("AuthResult: ~p", [AuthResult]),
+  case AuthResult of
+    {ok, #xtt_creds{identity = Identity, pseudonym = Pseudonym, cert = Cert, key = Key}, CallbackData1} ->
+        register(binary_to_atom(Identity, latin1), self()),
+        gen_server:cast(self(), connect),
+        {noreply, State#state{ipv6 = Identity, pseudonym = Pseudonym, cert = Cert, key = Key, callback_data = CallbackData1}};
+    Other ->
+      lager:warning("Invalid auth result ~p", [Other]),
+      {stop, failed_auth, State}
+  end;
 
 handle_cast(connect, #state{
   tls_socket = MaybeExistingTlsSocket,
@@ -136,18 +140,19 @@ handle_cast(connect, #state{
     ],2000),
   case MaybeExistingTlsSocket of
     undefined ->
-      {ok, CallbackData1} = CallbackModule:on_connect(CallbackData0);
+      {ok, CallbackData1} = CallbackModule:on_connect(self(), CallbackData0);
     #tlssocket{} ->
-      {ok, CallbackData1} = CallbackModule:on_reconnect(CallbackData0)
+      {ok, CallbackData1} = CallbackModule:on_reconnect(self(), CallbackData0)
   end,
 
-  {noreply, sState#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
+  {noreply, State#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
 
 handle_cast({send_message, {Payload, Dest}}, #state{
   tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket,
   callback_module = CallbackModule, callback_data = CallbackData0} = State)
     when is_port(TcpSocket), is_pid(SslPid) ->
   {Message, CallbackData1} = CallbackModule:on_send(Payload, Dest, self(), CallbackData0),
+  lager:info("Sending message ~p to ~p", [Message, Dest]),
   erltls:send(TlsSocket, Message),
   {noreply, State#state{callback_data = CallbackData1}};
 
@@ -156,10 +161,12 @@ handle_cast({send_message, Payload}, #state{
   callback_module = CallbackModule, callback_data = CallbackData0} = State)
     when is_port(TcpSocket), is_pid(SslPid) ->
   {Message, CallbackData1} = CallbackModule:on_send(Payload, self(), CallbackData0),
+  lager:info("Sending message ~p", [Message]),
   erltls:send(TlsSocket, Message),
   {noreply, State#state{callback_data = CallbackData1}};
 handle_cast({send_request, Request}, #state{
   tls_socket = #tlssocket{} = TlsSocket} = State)->
+  lager:info("Sending request ~p", [Request]),
   erltls:send(TlsSocket, Request),
   {noreply, State};
 %% Handle {active, false} mode
