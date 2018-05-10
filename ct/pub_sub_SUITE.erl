@@ -85,13 +85,13 @@ wait_for_sub_session_token(Sub, Timeout)->
     fun(Data)-> #dds_sub_data{session_token = SessionToken} = Data, SessionToken end,
     Timeout).
 
-wait_for_session_token(_EndpointPid, _SessionToken, _SFFun, Timeout) when Timeout =< 0->
+wait_for_session_token(_EndpointPid, _SessionToken, _STFun, Timeout) when Timeout =< 0->
   {error, timeout};
-wait_for_session_token(EndpointPid, SessionToken, SFFun, Timeout) when SessionToken =:= undefined; SessionToken =:= awaiting->
+wait_for_session_token(EndpointPid, SessionToken, STFun, Timeout) when SessionToken =:= undefined; SessionToken =:= awaiting->
   timer:sleep(100),
   Data = xaptum_endpoint:get_data(EndpointPid),
-  wait_for_session_token(EndpointPid, SessionToken, SFFun(Data), Timeout - 100);
-wait_for_session_token(_EndpointPid, SessionToken, _SFFUn, Timeout) when is_binary(SessionToken)->
+  wait_for_session_token(EndpointPid, STFun(Data), STFun, Timeout - 100);
+wait_for_session_token(_EndpointPid, SessionToken, _STFun, Timeout) when is_binary(SessionToken)->
   lager:info("Got session token ~p after ~p ms", [SessionToken, Timeout]),
   {ok, SessionToken}.
 
