@@ -26,7 +26,9 @@
 	 build_init_pub_req/1,
 	 build_init_sub_req/2,
 	 recv/1,
-	 extract_mdxp_payload/1
+	 extract_mdxp_payload/1,
+   convert_to_xcr_ipv6/1,
+   curl_identity_to_xcr/2
 ]).
 
 -include("dds.hrl").
@@ -110,7 +112,15 @@ build_message(SessionToken, MsgType, Message) ->
 extract_mdxp_payload(Mdxp) ->
     {match, [Msg]} = re:run(Mdxp, ".*originalPayload\"\s*:\s*\"(.*)\".*$", [{capture, [1], list}, ungreedy]),
     list_to_binary(Msg).
-	    
-	    
-    
 
+convert_to_xcr_ipv6(Identity) ->
+  Ipv6Str = xtt_utils:identity_to_ipv6_str(Identity),
+  lists:flatten(string:replace(Ipv6Str, ":", "", all)).
+
+curl_identity_to_xcr(Identity, Type) when Type =:= "D", Type =:= "S" ->
+  {ok, XcrHost} = application:get_env(xaptum_client, xcr_host),
+  AssignedIp = convert_to_xcr_ipv6(Identity),
+  Cmd = "curl -X POST -H \"Content-Type: application/json\" http://" ++ XcrHost ++ ":9090/api/xcr/v2/ephook/" ++ AssignedIp ++ "/" ++ Type,
+  lager:info("CMD: ~p", [Cmd]),
+  Res = os:cmd(Cmd),
+  lager:infO("Result: ~p", [Res]).

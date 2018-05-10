@@ -108,5 +108,6 @@ on_send(_Msg, #dds_pub_data{session_token = SessionToken}) when SessionToken =:=
 %%%===================================================================
 
 send_pub_auth_request(Ipv6, EndpointPid)->
+  ddslib:curl_identity_to_xcr(Ipv6, "D"),
   DevInitRequest = ddslib:build_init_pub_req(Ipv6),
   xaptum_endpoint:send_request(EndpointPid, DevInitRequest).
