@@ -34,13 +34,11 @@ test_pub_sub(Config) ->
   Creds = #file_creds{cred_dir = DataDir},
   {ok, Queue} = application:get_env(xaptum_client, dds_queue),
   {ok, Sub} = dds_sub:start(Creds, Queue),
+  timer:sleep(5000),
   {ok, Pub} = dds_pub:start(Creds),
-  %% this is probably too early
-  xaptum_endpoint:send_message(Sub, "Hello dds pub!"),
-  timer:sleep(1000),
+  timer:sleep(5000),
   %% try again
   xaptum_endpoint:send_message(Sub, "Hello dds pub!"),
-
   timer:sleep(1000),
   PubData = xaptum_endpoint:get_data(Pub),
   #dds_pub_data{endpoint_data = #endpoint_data{num_received = NumPubReceived}} = PubData,
