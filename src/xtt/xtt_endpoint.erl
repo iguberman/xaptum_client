@@ -115,6 +115,10 @@ get_creds_from_xtt_context (HandshakeContext)->
 
   {ok, CertAsn1} = xtt_erlang:xtt_x509_from_keypair(LongTermKey, LongTermPrivKey, Identity),
 
+  lager:info("CertAsn1 ~p~nLongTermKey ~p~nLongTermPrivKey ~p", [CertAsn1, LongTermKey, LongTermPrivKey]),
+
   {ok, PrivKeyAsn1} = xtt_erlang:xtt_asn1_from_private_key(LongTermPrivKey),
 
-  {ok, #xtt_creds{identity = Identity, pseudonym = Pseudonym, cert = CertAsn1, key = PrivKeyAsn1}}.
+  lager:info("LongTermPrivKeyAsn1 ~p", [PrivKeyAsn1]),
+
+  {ok, #xtt_creds{identity = Identity, pseudonym = Pseudonym, cert = CertAsn1, key = LongTermPrivKey}}.
