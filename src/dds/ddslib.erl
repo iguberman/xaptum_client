@@ -120,8 +120,10 @@ convert_to_xcr_ipv6(Identity) ->
 
 curl_identity_to_xcr(Identity, Type) when Type =:= "D"; Type =:= "S" ->
   {ok, XcrHost} = application:get_env(xaptum_client, xcr_host),
+  {ok, XcrPort} = application:get_env(xaptum_client, xcr_port),
   AssignedIp = convert_to_xcr_ipv6(Identity),
-  Cmd = "curl -X POST -H \"Content-Type: application/json\" http://" ++ XcrHost ++ ":9090/api/xcr/v2/ephook/" ++ AssignedIp ++ "/" ++ Type,
+  Cmd = "curl -X POST -H \"Content-Type: application/json\" http://" ++ XcrHost ++ ":" ++
+    integer_to_list(XcrPort) ++ "/api/xcr/v2/ephook/" ++ AssignedIp ++ "/" ++ Type,
   lager:info("CMD: ~p", [Cmd]),
   Res = os:cmd(Cmd),
   lager:infO("Result: ~p", [Res]).
