@@ -126,4 +126,4 @@ curl_identity_to_xcr(Identity, Type) when Type =:= "D"; Type =:= "S" ->
     integer_to_list(XcrPort) ++ "/api/xcr/v2/ephook/" ++ AssignedIp ++ "/" ++ Type,
   lager:info("CMD: ~p", [Cmd]),
   Res = os:cmd(Cmd),
-  lager:infO("Result: ~p", [Res]).
+  lager:info("Result: ~p", [Res]).
