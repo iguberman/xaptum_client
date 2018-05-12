@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-CREDS_RANGE_START = $1
-CREDS_RANGE_END = $2
+CREDS_RANGE_START=$1
+CREDS_RANGE_END=$2
 
 ## This script relies on following ecdaa executables in your path:
 
@@ -11,13 +11,13 @@ CREDS_RANGE_END = $2
 ##      ecdaa_issuer_create_group
 ##      ecdaa_extract_group_public_key
 
-GPK_BIN = "GROUP/gpk.bin"
-ISK_BIN = "GROUP/isk.bin"
+GPK_BIN="GROUP/gpk.bin"
+ISK_BIN="GROUP/isk.bin"
 
 if [[ -f $ISK_BIN && -f $GPK_BIN ]]; then
     echo "File $ISK_BIN and $GPK_BIN already exist"
 else
-    IPK_BIN = "GROUP/ipk.bin"
+    IPK_BIN="GROUP/ipk.bin"
     ## Create ISSUER public and private key
     ecdaa_issuer_create_group $IPK_BIN $ISK_BIN
     ## Extract group public key
