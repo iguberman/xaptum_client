@@ -9,15 +9,10 @@ ID=$1
 ##      ecdaa_issuer_respond_to_join_request
 
 NONCE="nonce-$ID"
-PK_BIN="MEMBER/pk.bin"
-SK_BIN="MEMBER/sk.bin"
+PK_BIN="MEMBER/pk$ID.bin"
+SK_BIN="MEMBER/sk$ID.bin"
 
-## TODO
-if [[ -f $PK_BIN && -f $SK_BIN ]]; then
-   echo "File $PK_BIN and $SK_BIN exist"
-else
-    ecdaa_member_request_join $NONCE $PK_BIN $SK_BIN || exit 1
-fi
+ecdaa_member_request_join $NONCE $PK_BIN $SK_BIN || exit 1
 
 CRED_BIN="MEMBER/cred$1.bin"
 CRED_SIG_BIN="MEMBER/cred_sig$1.bin"
