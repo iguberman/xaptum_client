@@ -18,11 +18,11 @@
 -behavior(xaptum_endpoint).
 
 %% API
--export([start/1]).
+-export([start/1, init_file_creds/4]).
 
 %% xaptum_endpoint callbacks
 -export([
-  auth/4,
+  auth/5,
   on_receive/3,
   receive_loop/3,
   on_send/2,
@@ -41,19 +41,20 @@ start(Creds)->
 %%%===================================================================
 
 auth(XttServerHost, XttServerPort,
-    #tpm_creds{cred_dir = CredDir, tpm_host = TpmHost, tpm_port = TpmPort, tpm_password = TpmPassword}, CallbackData)->
-  {ok, GroupContextInputs} = xtt_utils:group_context_inputs_tpm(CredDir, ?BASENAME_FILE, TpmHost, TpmPort, TpmPassword),
-  {ok, #xtt_creds{identity = Identity} = XttCreds} = do_handshake(GroupContextInputs, CredDir, XttServerHost, XttServerPort),
+    #tpm_creds{basename = BasenameFile, tpm_host = TpmHost, tpm_port = TpmPort, tpm_password = TpmPassword},
+    #cert{client_id = ClientIdFile, server_id = ServerIdFile},
+    CallbackData)->
+  {ok, GroupContextInputs} = xtt_utils:group_context_inputs_tpm(BasenameFile, TpmHost, TpmPort, TpmPassword),
+  {ok, #xtt_creds{identity = Identity} = XttCreds} = do_handshake(GroupContextInputs, ClientIdFile, ServerIdFile, XttServerHost, XttServerPort),
   {ok, XttCreds, CallbackData#endpoint_data{ipv6 = Identity}};
 auth(XttServerHost, XttServerPort,
-    #file_creds{cred_dir = CredDir}, CallbackData)->
-  {ok, GroupContextInputs} = xtt_utils:group_context_inputs(CredDir,
-    ?BASENAME_FILE,
-    ?DAA_GPK_FILE,
-    ?DAA_CRED_FILE,
-    ?DAA_SECRETKEY_FILE,
-    ?ROOT_ID_FILE, ?ROOT_PUBKEY_FILE),
-  {ok, #xtt_creds{identity = Identity} = XttCreds} = do_handshake(GroupContextInputs, CredDir, XttServerHost, XttServerPort),
+    #file_creds{basename = BasenameFile, gpk = GpkFile, cred = CredFile, sk = SecretKeyFile,
+      root_id = RootIdFile, root_pk = RootPubkeyFile},
+    #cert{client_id = ClientIdFile, server_id = ServerIdFile} = Cert,
+    CallbackData)->
+  {ok, GroupContextInputs} = xtt_utils:group_context_inputs(BasenameFile,
+    GpkFile, CredFile,  SecretKeyFile, RootIdFile, RootPubkeyFile),
+  {ok, #xtt_creds{identity = Identity} = XttCreds} = do_handshake(GroupContextInputs, ClientIdFile, ServerIdFile, XttServerHost, XttServerPort),
   {ok, XttCreds, CallbackData#endpoint_data{ipv6 = Identity}}.
 
 
@@ -88,12 +89,28 @@ on_disconnect(_EndpointPid, CallbackData) ->
 
 
 %%%===================================================================
+%%% UTILS
+%%%===================================================================
+
+init_tpm_creds(BaseDir, GroupDir, CertDir, CredDir, TpmHost, TpmPort, TpmPassword)->
+  ok.
+
+
+init_file_creds(BaseDir, GroupDir, CertDir, CredDir)->
+  #file_creds{ basename = filename:join([BaseDir, GroupDir, ?BASENAME_FILE]),
+    gpk = filename:join([BaseDir, GroupDir, ?DAA_GPK_FILE]),
+    cred = filename:join([BaseDir, CredDir, ?DAA_CRED_FILE]),
+    sk = filename:join([BaseDir, CredDir, ?DAA_SECRETKEY_FILE]),
+    root_id = filename:join([BaseDir, CertDir, ?ROOT_ID_FILE]),
+    root_pk = filename:join([BaseDir, CertDir, ?ROOT_PUBKEY_FILE])}.
+
+%%%===================================================================
 %%% internal functions
 %%%===================================================================
 
-do_handshake(GroupContextInputs, CredDir, XttServerHost, XttServerPort)->
+do_handshake(GroupContextInputs, RequestedClientIdFile, IntendedServerIdFile, XttServerHost, XttServerPort)->
   {RequestedClientId, IntendedServerId} =
-    xtt_utils:initialize_ids(CredDir, ?REQUESTED_CLIENT_ID_FILE, ?SERVER_ID_FILE),
+    xtt_utils:initialize_ids(RequestedClientIdFile, IntendedServerIdFile),
   {ok, Pid} = xtt_handshake:start_handshake(
     XttServerHost, XttServerPort,
     RequestedClientId, IntendedServerId,
@@ -122,3 +139,4 @@ get_creds_from_xtt_context (HandshakeContext)->
   lager:info("LongTermPrivKeyAsn1 ~p", [PrivKeyAsn1]),
 
   {ok, #xtt_creds{identity = Identity, pseudonym = Pseudonym, cert = CertAsn1, key = PrivKeyAsn1}}.
+

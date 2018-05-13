@@ -22,7 +22,12 @@
 -define(SESSION_TOKEN_WAIT_TIMEOUT, 20000).
 -define(MESSAGE_LATENCY, 2000).
 
-all() -> [test_pub].
+-define(GROUP_DIR, "GROUP").
+-define(CERT_DIR, "CERT").
+-define(PUB_CRED_DIR, "PUB_CRED").
+-define(SUB_CRED_DIR, "SUB_CRED").
+
+all() -> [test_pub, test_sub].
 
 init_per_suite(Config)->
   application:ensure_all_started(lager),
@@ -34,8 +39,8 @@ end_per_suite(_Config) ->
 
 test_pub(Config)->
   DataDir = ?config(data_dir, Config),
-  Creds = #file_creds{cred_dir = DataDir},
-  {ok, Pub} = dds_pub:start(Creds),
+  FileCreds = xtt_endpoint:init_file_creds(DataDir, ?GROUP_DIR, ?CERT_DIR, ?PUB_CRED_DIR),
+  {ok, Pub} = dds_pub:start(FileCreds),
   {ok, _PubSessionToken} = wait_for_pub_session_token(Pub, ?SESSION_TOKEN_WAIT_TIMEOUT),
 
   test_pub_send_message(Pub, "Hello from pub!", 1),
@@ -44,9 +49,9 @@ test_pub(Config)->
 
 test_sub(Config)->
   DataDir = ?config(data_dir, Config),
-  Creds = #file_creds{cred_dir = DataDir},
+  FileCreds = xtt_endpoint:init_file_creds(DataDir, ?GROUP_DIR, ?CERT_DIR, ?SUB_CRED_DIR),
   {ok, Queue} = application:get_env(xaptum_client, dds_queue),
-  {ok, Sub} = dds_sub:start(Creds, Queue),
+  {ok, Sub} = dds_sub:start(FileCreds, Queue),
   {ok, _SubSessionToken} = wait_for_sub_session_token(Sub, ?SESSION_TOKEN_WAIT_TIMEOUT),
 
   test_sub_send_message(Sub, "Hello from sub!", 1),
@@ -55,13 +60,14 @@ test_sub(Config)->
 
 test_pub_sub(Config) ->
   DataDir = ?config(data_dir, Config),
-  Creds = #file_creds{cred_dir = DataDir},
+  PubFileCreds = xtt_endpoint:init_file_creds(DataDir, ?GROUP_DIR, ?CERT_DIR, ?PUB_CRED_DIR),
+  SubFileCreds = xtt_endpoint:init_file_creds(DataDir, ?GROUP_DIR, ?CERT_DIR, ?SUB_CRED_DIR),
 
   {ok, Queue} = application:get_env(xaptum_client, dds_queue),
-  {ok, Sub} = dds_sub:start(Creds, Queue),
+  {ok, Sub} = dds_sub:start(SubFileCreds, Queue),
   {ok, _SubSessionToken} = wait_for_sub_session_token(Sub, ?SESSION_TOKEN_WAIT_TIMEOUT),
 
-  {ok, Pub} = dds_pub:start(Creds),
+  {ok, Pub} = dds_pub:start(PubFileCreds),
   {ok, _PubSessionToken} = wait_for_pub_session_token(Pub, ?SESSION_TOKEN_WAIT_TIMEOUT),
 
   test_pub_send_message(Pub, "Hello from pub!", 1),

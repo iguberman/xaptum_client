@@ -43,7 +43,7 @@
   receiver_pid}).
 
 
--callback auth(Host :: list(), Port :: integer(), Creds :: term(), CallbackData :: any())->
+-callback auth(Host :: list(), Port :: integer(), Creds :: term(), Cert :: term(), CallbackData :: any())->
   {Identity :: binary() , Cert :: binary(), Key :: binary()}.
 -callback on_receive(Msg :: binary(), EndpointPid :: pid(), CallbackData :: any()) -> {ok, CallbackData :: any()}.
 -callback receive_loop(TlsSocket :: tuple(), EndpointPid :: pid(), CallbackData :: any()) -> ok.
