@@ -22,6 +22,7 @@ fi
 CRED_BIN="MEMBER/cred$1.bin"
 CRED_SIG_BIN="MEMBER/cred_sig$1.bin"
 ISK_BIN="GROUP/isk.bin"
+GPK_BIN="GROUP/gpk.bin"
 
 ## GENERATE CREDENTIAL
 ecdaa_issuer_respond_to_join_request $PK_BIN $ISK_BIN $CRED_BIN $CRED_SIG_BIN $NONCE || exit 1
