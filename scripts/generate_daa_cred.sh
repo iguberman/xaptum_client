@@ -29,7 +29,7 @@ MEMBER_DIR="$BASEDIR/MEMBER$ID"
 
 GROUP_DIR="$BASEDIR/GROUP"
 
-mkdir -p $CRED_DIR
+mkdir -p $MEMBER_DIR
 
 mkdir -p $GROUP_DIR
 
