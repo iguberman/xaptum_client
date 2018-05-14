@@ -1,9 +1,9 @@
 -ifndef('__xtt_endpoint_hrl__').
 -define('__xtt_endpoint_hrl__',true).
 
--record(tpm_creds, {basename, tpm_host, tpm_port, tpm_password}).
+-record(tpm_creds, {basename, tpm_host, tpm_port, tpm_password, client_id, server_id}).
 
--record(file_creds, {basename, gpk, cred, sk, root_id, root_pk}).
+-record(file_creds, {basename, gpk, cred, sk, root_id, root_pk, client_id, server_id}).
 
 -record(cert, {client_id, server_id}).
 

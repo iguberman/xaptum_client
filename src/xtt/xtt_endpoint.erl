@@ -22,7 +22,7 @@
 
 %% xaptum_endpoint callbacks
 -export([
-  auth/5,
+  auth/4,
   on_receive/3,
   receive_loop/3,
   on_send/2,
@@ -41,20 +41,21 @@ start(Creds)->
 %%%===================================================================
 
 auth(XttServerHost, XttServerPort,
-    #tpm_creds{basename = BasenameFile, tpm_host = TpmHost, tpm_port = TpmPort, tpm_password = TpmPassword},
-    #cert{client_id = ClientIdFile, server_id = ServerIdFile},
+    #tpm_creds{basename = BasenameFile, tpm_host = TpmHost, tpm_port = TpmPort, tpm_password = TpmPassword,
+      client_id = ClientIdFile, server_id = ServerIdFile},
     CallbackData)->
   {ok, GroupContextInputs} = xtt_utils:group_context_inputs_tpm(BasenameFile, TpmHost, TpmPort, TpmPassword),
   {ok, #xtt_creds{identity = Identity} = XttCreds} = do_handshake(GroupContextInputs, ClientIdFile, ServerIdFile, XttServerHost, XttServerPort),
   {ok, XttCreds, CallbackData#endpoint_data{ipv6 = Identity}};
 auth(XttServerHost, XttServerPort,
     #file_creds{basename = BasenameFile, gpk = GpkFile, cred = CredFile, sk = SecretKeyFile,
-      root_id = RootIdFile, root_pk = RootPubkeyFile},
-    #cert{client_id = ClientIdFile, server_id = ServerIdFile} = Cert,
+      root_id = RootIdFile, root_pk = RootPubkeyFile, client_id = ClientIdFile, server_id = ServerIdFile},
     CallbackData)->
   {ok, GroupContextInputs} = xtt_utils:group_context_inputs(BasenameFile,
     GpkFile, CredFile,  SecretKeyFile, RootIdFile, RootPubkeyFile),
-  {ok, #xtt_creds{identity = Identity} = XttCreds} = do_handshake(GroupContextInputs, ClientIdFile, ServerIdFile, XttServerHost, XttServerPort),
+  {ok, #xtt_creds{identity = Identity} = XttCreds} = do_handshake(
+    GroupContextInputs, ClientIdFile, ServerIdFile,
+    XttServerHost, XttServerPort),
   {ok, XttCreds, CallbackData#endpoint_data{ipv6 = Identity}}.
 
 
