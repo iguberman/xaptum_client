@@ -16,7 +16,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--include_lib("xtt/include/xtt.hrl").
+-include_lib("xtt_erlang/include/xtt.hrl").
 -include_lib("xaptum_client/include/xtt_endpoint.hrl").
 -include_lib("xaptum_client/include/dds.hrl").
 
