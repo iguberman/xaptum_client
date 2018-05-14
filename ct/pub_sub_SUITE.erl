@@ -33,7 +33,7 @@ init_per_suite(Config)->
   PrivDir = ?config(priv_dir, Config),
   application:ensure_all_started(lager),
   application:ensure_all_started(xaptum_client),
-  xtt_utils:generate_credentials(1,2, PrivDir),
+  xtt_client_utils:generate_credentials(1,2, PrivDir),
   Config.
 
 end_per_suite(_Config) ->
