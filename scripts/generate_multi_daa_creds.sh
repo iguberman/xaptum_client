@@ -4,7 +4,7 @@ CREDS_RANGE_START=$1
 CREDS_RANGE_END=$2
 
 BASEDIR=${3:-`pwd`}
-GROUP_DIR = "$BASEDIR/GROUP"
+GROUP_DIR="$BASEDIR/GROUP"
 mkdir -p $GROUP_DIR
 
 ## This script relies on following ecdaa executables in your path:
