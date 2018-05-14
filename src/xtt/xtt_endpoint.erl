@@ -18,7 +18,7 @@
 -behavior(xaptum_endpoint).
 
 %% API
--export([start/1, init_file_creds/3]).
+-export([start/1, init_file_creds/4]).
 
 %% xaptum_endpoint callbacks
 -export([
@@ -103,7 +103,7 @@ init_tpm_creds(BaseDir, GroupDir, CertDir, CredDir, TpmHost, TpmPort, TpmPasswor
     server_id = filename:join([BaseDir, CertDir, ?SERVER_ID_FILE])}.
 
 
-init_file_creds(GroupDir, CertDir, CredDir)->
+init_file_creds(RequestedClientIdFile, GroupDir, CertDir, CredDir)->
   lager:info("Initializing file creds from GroupDir ~p:~n~p, ~nCertDir ~p:~n~p, and ~nCredDir ~p:~n~p",
     [GroupDir, os:cmd("ls " ++ GroupDir), CertDir, os:cmd("ls " ++ CertDir), CredDir, os:cmd("ls " ++ CredDir)]),
   #file_creds{
@@ -113,7 +113,7 @@ init_file_creds(GroupDir, CertDir, CredDir)->
     sk = filename:join([CredDir, ?DAA_SECRETKEY_FILE]),
     root_id = filename:join([CertDir, ?ROOT_ID_FILE]),
     root_pk = filename:join([CertDir, ?ROOT_PUBKEY_FILE]),
-    client_id = filename:join([CredDir, ?REQUESTED_CLIENT_ID_FILE]),
+    client_id = RequestedClientIdFile,
     server_id = filename:join([CertDir, ?SERVER_ID_FILE])}.
 
 %%%===================================================================

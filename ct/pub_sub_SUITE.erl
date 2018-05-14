@@ -16,6 +16,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
+-include_lib("xtt/include/xtt.hrl").
 -include_lib("xaptum_client/include/xtt_endpoint.hrl").
 -include_lib("xaptum_client/include/dds.hrl").
 
@@ -124,7 +125,10 @@ init_file_creds(Config, MemberDir)->
   DataDir = ?config(data_dir, Config),
   PrivDir = ?config(priv_dir, Config),
 
+  NullRequestedClientIdFile = filename:join([DataDir, ?REQUESTED_CLIENT_ID_FILE]),
+
   xtt_endpoint:init_file_creds(
+    NullRequestedClientIdFile,
     filename:join([PrivDir, ?GROUP_DIR]),
     filename:join([DataDir, ?CERT_DIR]),
     filename:join([PrivDir, MemberDir])).
