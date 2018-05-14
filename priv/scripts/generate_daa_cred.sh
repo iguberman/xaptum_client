@@ -42,8 +42,8 @@ ecdaa_member_request_join $NONCE $PK_BIN $SK_BIN || exit 1
 
 CRED_BIN="$MEMBER_DIR/cred.bin"
 CRED_SIG_BIN="$MEMBER_DIR/cred_sig.bin"
-ISK_BIN="GROUP/isk.bin"
-GPK_BIN="GROUP/gpk.bin"
+ISK_BIN="$GROUP_DIR/isk.bin"
+GPK_BIN="$GROUP_DIR/gpk.bin"
 
 ## GENERATE CREDENTIAL
 ecdaa_issuer_respond_to_join_request $PK_BIN $ISK_BIN $CRED_BIN $CRED_SIG_BIN $NONCE || exit 1
