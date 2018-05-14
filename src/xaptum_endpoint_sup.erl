@@ -41,7 +41,7 @@ create_endpoint(CallbackModule, CallbackData, Creds)->
 %%====================================================================
 
 init([XaptumHost, XttPort, TlsPort]) ->
-  RestartStrategy = {simple_one_for_one, 60, 3600},
+  RestartStrategy = {simple_one_for_one, 5, 1000},
 
   EndpointSpec =
     #{id => xaptum_endpoint,
