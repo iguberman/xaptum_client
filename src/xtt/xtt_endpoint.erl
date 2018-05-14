@@ -104,7 +104,7 @@ init_tpm_creds(BaseDir, GroupDir, CertDir, CredDir, TpmHost, TpmPort, TpmPasswor
 
 
 init_file_creds(GroupDir, CertDir, CredDir)->
-  lager:info("Initializing file creds from GroupDir ~p~n: ~p, ~nCertDir ~p~n:~p, and ~nCredDir ~p~n",
+  lager:info("Initializing file creds from GroupDir ~p:~n~p, ~nCertDir ~p:~n~p, and ~nCredDir ~p:~n~p",
     [GroupDir, os:cmd("ls " ++ GroupDir), CertDir, os:cmd("ls " ++ CertDir), CredDir, os:cmd("ls " ++ CredDir)]),
   #file_creds{
     basename = filename:join([GroupDir, ?BASENAME_FILE]),
