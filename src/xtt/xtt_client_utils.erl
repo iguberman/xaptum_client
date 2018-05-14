@@ -18,8 +18,8 @@
 %% also is good for adhoc manual generation of credentials for whatever purpose
 %% for ct it would be nice to have this functionality using ecdaa-erlang library
 generate_credentials(Start, End, BaseDir)->
-  BaseDir = code:priv_dir(xaptum_client),
-  CredScript = filename:join([BaseDir, ?SCRIPT_DIR, ?CRED_SCRIPT]),
+  PrivDir = code:priv_dir(xaptum_client),
+  CredScript = filename:join([PrivDir, ?SCRIPT_DIR, ?CRED_SCRIPT]),
   ExeCmd = CredScript ++ " " ++ integer_to_list(Start) ++ " " ++ integer_to_list(End) ++ " " ++ BaseDir,
   lager:info("Executing command: ~p", [ExeCmd]),
   os:cmd(ExeCmd).

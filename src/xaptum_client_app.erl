@@ -81,7 +81,7 @@ init([]) ->
   {ok, XaptumHost} = application:get_env(xaptum_client, xaptum_host),
   {ok, TlsPort} = application:get_env(xaptum_client, tls_port),
   {ok, XttPort} = application:get_env(xaptum_client, xtt_port),
-  lager:info("xtt_host ~p and xtt_port ~p", [XaptumHost, XttPort, TlsPort]),
+  lager:info("xaptum_host ~p, xtt_port ~p, tls_port ~p", [XaptumHost, XttPort, TlsPort]),
 
   EndpointSupervisorSpec =
     #{id => xaptum_endpoint_sup,
