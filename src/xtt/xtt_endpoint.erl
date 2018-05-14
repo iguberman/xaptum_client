@@ -94,16 +94,25 @@ on_disconnect(_EndpointPid, CallbackData) ->
 %%%===================================================================
 
 init_tpm_creds(BaseDir, GroupDir, CertDir, CredDir, TpmHost, TpmPort, TpmPassword)->
-  ok.
+  #tpm_creds{
+    basename = filename:join([BaseDir, GroupDir, ?BASENAME_FILE]),
+    tpm_host = TpmHost,
+    tpm_port = TpmPort,
+    tpm_password = TpmPassword,
+    client_id = filename:join([BaseDir, CredDir, ?REQUESTED_CLIENT_ID_FILE]),
+    server_id = filename:join([BaseDir, CertDir, ?SERVER_ID_FILE])}.
 
 
 init_file_creds(BaseDir, GroupDir, CertDir, CredDir)->
-  #file_creds{ basename = filename:join([BaseDir, GroupDir, ?BASENAME_FILE]),
+  #file_creds{
+    basename = filename:join([BaseDir, GroupDir, ?BASENAME_FILE]),
     gpk = filename:join([BaseDir, GroupDir, ?DAA_GPK_FILE]),
     cred = filename:join([BaseDir, CredDir, ?DAA_CRED_FILE]),
     sk = filename:join([BaseDir, CredDir, ?DAA_SECRETKEY_FILE]),
     root_id = filename:join([BaseDir, CertDir, ?ROOT_ID_FILE]),
-    root_pk = filename:join([BaseDir, CertDir, ?ROOT_PUBKEY_FILE])}.
+    root_pk = filename:join([BaseDir, CertDir, ?ROOT_PUBKEY_FILE]),
+    client_id = filename:join([BaseDir, CredDir, ?REQUESTED_CLIENT_ID_FILE]),
+    server_id = filename:join([BaseDir, CertDir, ?SERVER_ID_FILE])}.
 
 %%%===================================================================
 %%% internal functions
