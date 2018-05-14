@@ -7,6 +7,8 @@ BASEDIR=${3:-`pwd`}
 GROUP_DIR="$BASEDIR/GROUP"
 mkdir -p $GROUP_DIR
 
+CUR_DIR="$(dirname "$0")"
+
 ## This script relies on following ecdaa executables in your path:
 
 ##      OPTIONAL:
@@ -39,24 +41,24 @@ BSN_REV_LIST_BIN="$GROUP_DIR/bsn_revocation_list.bin"
 ## Copy default files to requested BASEDIR if it doesn't have them already
 
 if [ ! -f $MSG_BIN ]; then
-    cp DEFAULTS/message.bin $MSG_BIN
+    cp "$CUR_DIR/DEFAULTS/message.bin" $MSG_BIN
 fi
 
 if [ ! -f $BASENAME_BIN ]; then
-    cp DEFAULTS/basename.bin $BASENAME_BIN
+    cp "$CUR_DIR/DEFAULTS/basename.bin" $BASENAME_BIN
 fi
 
 if [ ! -f $SK_REV_LIST_BIN ]; then
-    cp DEFAULTS/sk_revocation_list.bin $SK_REV_LIST_BIN
+    cp "$CUR_DIR/DEFAULTS/sk_revocation_list.bin" $SK_REV_LIST_BIN
 fi
 
 if [ ! -f $BSN_REV_LIST_BIN ]; then
-    cp DEFAULTS/bsn_revocation_list.bin $BSN_REV_LIST_BIN
+    cp "$CUR_DIR/DEFAULTS/bsn_revocation_list.bin" $BSN_REV_LIST_BIN
 fi
 
 
 for i in $(seq $CREDS_RANGE_START $CREDS_RANGE_END);
 do echo "Generating cred $i"
-./generate_daa_cred.sh $i $BASEDIR || exit 1
+"$CUR_DIR"/generate_daa_cred.sh $i $BASEDIR || exit 1
 done
 
