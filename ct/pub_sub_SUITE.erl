@@ -24,22 +24,23 @@
 
 -define(GROUP_DIR, "GROUP").
 -define(CERT_DIR, "CERT").
--define(PUB_CRED_DIR, "PUB_CRED").
--define(SUB_CRED_DIR, "SUB_CRED").
+-define(PUB_CRED_DIR, "MEMBER1").
+-define(SUB_CRED_DIR, "MEMBER2").
 
 all() -> [test_pub, test_sub].
 
 init_per_suite(Config)->
+  PrivDir = ?config(priv_dir, Config),
   application:ensure_all_started(lager),
   application:ensure_all_started(xaptum_client),
+  xtt_utils:generate_credentials(1,2, PrivDir),
   Config.
 
 end_per_suite(_Config) ->
   ok.
 
 test_pub(Config)->
-  DataDir = ?config(data_dir, Config),
-  FileCreds = xtt_endpoint:init_file_creds(DataDir, ?GROUP_DIR, ?CERT_DIR, ?PUB_CRED_DIR),
+  FileCreds = init_file_creds(Config, ?PUB_CRED_DIR),
   {ok, Pub} = dds_pub:start(FileCreds),
   {ok, _PubSessionToken} = wait_for_pub_session_token(Pub, ?SESSION_TOKEN_WAIT_TIMEOUT),
 
@@ -48,8 +49,7 @@ test_pub(Config)->
   test_pub_send_message(Pub, "Message 2 from pub!", 3).
 
 test_sub(Config)->
-  DataDir = ?config(data_dir, Config),
-  FileCreds = xtt_endpoint:init_file_creds(DataDir, ?GROUP_DIR, ?CERT_DIR, ?SUB_CRED_DIR),
+  FileCreds = init_file_creds(Config, ?SUB_CRED_DIR),
   {ok, Queue} = application:get_env(xaptum_client, dds_queue),
   {ok, Sub} = dds_sub:start(FileCreds, Queue),
   {ok, _SubSessionToken} = wait_for_sub_session_token(Sub, ?SESSION_TOKEN_WAIT_TIMEOUT),
@@ -59,9 +59,8 @@ test_sub(Config)->
   test_pub_send_message(Sub, "Message 2 from sub!", 3).
 
 test_pub_sub(Config) ->
-  DataDir = ?config(data_dir, Config),
-  PubFileCreds = xtt_endpoint:init_file_creds(DataDir, ?GROUP_DIR, ?CERT_DIR, ?PUB_CRED_DIR),
-  SubFileCreds = xtt_endpoint:init_file_creds(DataDir, ?GROUP_DIR, ?CERT_DIR, ?SUB_CRED_DIR),
+  PubFileCreds = init_file_creds(Config, ?PUB_CRED_DIR),
+  SubFileCreds = init_file_creds(Config, ?SUB_CRED_DIR),
 
   {ok, Queue} = application:get_env(xaptum_client, dds_queue),
   {ok, Sub} = dds_sub:start(SubFileCreds, Queue),
@@ -120,3 +119,11 @@ test_sub_recv_message(SubPid, RecvSequence)->
   timer:sleep(?MESSAGE_LATENCY),
   SubData = xaptum_endpoint:get_data(SubPid),
   #dds_sub_data{endpoint_data = #endpoint_data{num_received = RecvSequence}} = SubData.
+
+init_file_creds(Config, MemberDir)->
+  DataDir = ?config(data_dir, Config),
+  PrivDir = ?config(priv_dir, Config),
+  xtt_endpoint:init_file_creds(
+    filename:join([PrivDir, ?GROUP_DIR]),
+    filename:join([DataDir, ?CERT_DIR]),
+    filename:join([PrivDir, MemberDir])).
