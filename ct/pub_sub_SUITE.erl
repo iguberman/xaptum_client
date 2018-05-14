@@ -30,10 +30,10 @@
 all() -> [test_pub, test_sub].
 
 init_per_suite(Config)->
-  PrivDir = ?config(priv_dir, Config),
+  CTPrivDir = ?config(priv_dir, Config),
   application:ensure_all_started(lager),
   application:ensure_all_started(xaptum_client),
-  xtt_client_utils:generate_credentials(1,2, PrivDir),
+  xtt_client_utils:generate_credentials(1,2, CTPrivDir),
   Config.
 
 end_per_suite(_Config) ->
@@ -123,6 +123,7 @@ test_sub_recv_message(SubPid, RecvSequence)->
 init_file_creds(Config, MemberDir)->
   DataDir = ?config(data_dir, Config),
   PrivDir = ?config(priv_dir, Config),
+
   xtt_endpoint:init_file_creds(
     filename:join([PrivDir, ?GROUP_DIR]),
     filename:join([DataDir, ?CERT_DIR]),
