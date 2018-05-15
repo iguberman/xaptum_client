@@ -23,10 +23,14 @@
 -define(SESSION_TOKEN_WAIT_TIMEOUT, 20000).
 -define(MESSAGE_LATENCY, 2000).
 
+-define(MB_PUBLIC_KEYS_DIR, "/opt/xaptum/public/group_public_keys").
+
 -define(GROUP_DIR, "GROUP").
 -define(CERT_DIR, "CERT").
 -define(PUB_CRED_DIR, "MEMBER1").
 -define(SUB_CRED_DIR, "MEMBER2").
+
+-define(GID_FILE_CONFIG, gid_file).
 
 all() -> [test_pub, test_sub].
 
@@ -37,31 +41,35 @@ init_per_suite(Config)->
   xtt_client_utils:generate_credentials(1,2, CTPrivDir),
   Config.
 
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+  GidFile = ?config(?GID_FILE_CONFIG, Config),
+  file:delete(GidFile),
   ok.
 
 test_pub(Config)->
-  FileCreds = init_file_creds(Config, ?PUB_CRED_DIR),
+  {NewConfig, FileCreds} = init_file_creds(Config, ?PUB_CRED_DIR),
   {ok, Pub} = dds_pub:start(FileCreds),
   {ok, _PubSessionToken} = wait_for_pub_session_token(Pub, ?SESSION_TOKEN_WAIT_TIMEOUT),
 
   test_pub_send_message(Pub, "Hello from pub!", 1),
   test_pub_send_message(Pub, "Message 1 from pub!", 2),
-  test_pub_send_message(Pub, "Message 2 from pub!", 3).
+  test_pub_send_message(Pub, "Message 2 from pub!", 3),
+  NewConfig.
 
 test_sub(Config)->
-  FileCreds = init_file_creds(Config, ?SUB_CRED_DIR),
+  {NewConfig, FileCreds} = init_file_creds(Config, ?SUB_CRED_DIR),
   {ok, Queue} = application:get_env(xaptum_client, dds_queue),
   {ok, Sub} = dds_sub:start(FileCreds, Queue),
   {ok, _SubSessionToken} = wait_for_sub_session_token(Sub, ?SESSION_TOKEN_WAIT_TIMEOUT),
 
   test_sub_send_message(Sub, "Hello from sub!", 1),
   test_pub_send_message(Sub, "Message 1 from sub!", 2),
-  test_pub_send_message(Sub, "Message 2 from sub!", 3).
+  test_pub_send_message(Sub, "Message 2 from sub!", 3),
+  NewConfig.
 
 test_pub_sub(Config) ->
-  PubFileCreds = init_file_creds(Config, ?PUB_CRED_DIR),
-  SubFileCreds = init_file_creds(Config, ?SUB_CRED_DIR),
+  {NewConfig, PubFileCreds} = init_file_creds(Config, ?PUB_CRED_DIR),
+  {NewConfig, SubFileCreds} = init_file_creds(Config, ?SUB_CRED_DIR),
 
   {ok, Queue} = application:get_env(xaptum_client, dds_queue),
   {ok, Sub} = dds_sub:start(SubFileCreds, Queue),
@@ -74,7 +82,8 @@ test_pub_sub(Config) ->
   test_sub_recv_message(Sub, 1),
 
   test_sub_send_message(Sub, "Signal from sub!", 1),
-  test_pub_recv_message(Pub, 1).
+  test_pub_recv_message(Pub, 1),
+  NewConfig.
 
 
 %%%===================================================================
@@ -127,8 +136,19 @@ init_file_creds(Config, MemberDir)->
 
   NullRequestedClientIdFile = filename:join([DataDir, ?REQUESTED_CLIENT_ID_FILE]),
 
-  xtt_endpoint:init_file_creds(
+
+  GroupDir = filename:join([PrivDir, ?GROUP_DIR]),
+  BasenameFile = filename:join([GroupDir, ?BASENAME_FILE]),
+  GpkFile = filename:join([GroupDir, ?DAA_GPK_FILE]),
+  {ok, Basename} = file:read_file(BasenameFile),
+  {ok, Gpk} = file:read_file(GpkFile),
+  Gid = crypto:hash(sha256, Gpk),
+  GidCsv = lists:flatten([[io_lib:format("~2.16.0B",[X]) || <<X:8>> <= Gid ]], ".csv"),
+  GidFile = filename:join(?MB_PUBLIC_KEYS_DIR, GidCsv),
+  file:write_file(GidFile, <<"#basename,gpk\n",Basename/binary,",",Gpk/binary>>),
+
+  {[{?GID_FILE_CONFIG, GidFile} | Config ], xtt_endpoint:init_file_creds(
     NullRequestedClientIdFile,
-    filename:join([PrivDir, ?GROUP_DIR]),
+    GroupDir,
     filename:join([DataDir, ?CERT_DIR]),
-    filename:join([PrivDir, MemberDir])).
+    filename:join([PrivDir, MemberDir]))}.
