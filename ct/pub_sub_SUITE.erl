@@ -43,6 +43,7 @@ init_per_suite(Config)->
 
 end_per_suite(Config) ->
   GidFile = ?config(?GID_FILE_CONFIG, Config),
+  lager:info("Deleting temporary file ~p", [GidFile]),
   file:delete(GidFile),
   ok.
 
@@ -146,6 +147,8 @@ init_file_creds(Config, MemberDir)->
   GidCsv = lists:flatten([[io_lib:format("~2.16.0B",[X]) || <<X:8>> <= Gid ]], ".csv"),
   GidFile = filename:join(?MB_PUBLIC_KEYS_DIR, GidCsv),
   file:write_file(GidFile, <<"#basename,gpk\n",Basename/binary,",",Gpk/binary>>),
+
+  lager:info("Created file ~p with contents ~p", [GidFile, file:read_file(GidFile)]),
 
   {[{?GID_FILE_CONFIG, GidFile} | Config ], xtt_endpoint:init_file_creds(
     NullRequestedClientIdFile,
