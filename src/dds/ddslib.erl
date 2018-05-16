@@ -27,7 +27,6 @@
 	 build_init_sub_req/2,
 	 recv/1,
 	 extract_mdxp_payload/1,
-   convert_to_xcr_ipv6/1,
    curl_identity_to_xcr/2
 ]).
 
