@@ -144,10 +144,9 @@ init_file_creds(Config, MemberDir)->
   {ok, Basename} = file:read_file(BasenameFile),
   {ok, Gpk} = file:read_file(GpkFile),
   Gid = crypto:hash(sha256, Gpk),
-  GidCsv = lists:flatten([[io_lib:format("~2.16.0B",[X]) || <<X:8>> <= Gid ]], ".csv"),
-  GidFile = filename:join(?MB_PUBLIC_KEYS_DIR, GidCsv),
-  GpkHex = list_to_binary(lists:flatten([[io_lib:format("~2.16.0B",[X]) || <<X:8>> <= Gpk ]])),
-  BasenameHex = list_to_binary(lists:flatten([[io_lib:format("~2.16.0B",[X]) || <<X:8>> <= Basename ]])),
+  GidFile = filename:join([?MB_PUBLIC_KEYS_DIR, xtt_client_utils:binary_to_hex(Gid) ++ ".csv"]),
+  GpkHex = list_to_binary(xtt_client_utils:binary_to_hex(Gpk)),
+  BasenameHex = list_to_binary(xtt_client_utils:binary_to_hex(Basename)),
   file:write_file(GidFile, <<"#basename,gpk\n",BasenameHex/binary,",", GpkHex/binary>>),
 
   ct:print("Created file ~p with contents ~p", [GidFile, file:read_file(GidFile)]),

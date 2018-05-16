@@ -10,7 +10,9 @@
 -author("iguberman").
 
 %% API
--export([generate_credentials/3]).
+-export([
+  generate_credentials/3,
+  binary_to_hex/1]).
 -define(SCRIPT_DIR, "scripts").
 -define(CRED_SCRIPT, "generate_multi_daa_creds.sh").
 
@@ -25,5 +27,9 @@ generate_credentials(Start, End, BaseDir)->
     ++ " " ++ BaseDir,
   lager:info("Executing command: ~p", [ExeCmd]),
   os:cmd(ExeCmd).
+
+
+binary_to_hex(Bin)->
+  lists:flatten([[io_lib:format("~2.16.0B",[X]) || <<X:8>> <= Bin ]]).
 
 

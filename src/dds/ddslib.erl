@@ -113,15 +113,10 @@ extract_mdxp_payload(Mdxp) ->
     {match, [Msg]} = re:run(Mdxp, ".*originalPayload\"\s*:\s*\"(.*)\".*$", [{capture, [1], list}, ungreedy]),
     list_to_binary(Msg).
 
-convert_to_xcr_ipv6(Identity) ->
-  Ipv6Str = xtt_utils:identity_to_ipv6_str(Identity),
-  AllZeros = lists:flatten(string:replace(Ipv6Str, ":0:", "0000", all)),
-  string:to_upper(lists:flatten(string:replace(AllZeros, ":", "", all))).
-
 curl_identity_to_xcr(Identity, Type) when Type =:= "D"; Type =:= "S" ->
   {ok, XcrHost} = application:get_env(xaptum_client, xcr_host),
   {ok, XcrPort} = application:get_env(xaptum_client, xcr_port),
-  AssignedIp = convert_to_xcr_ipv6(Identity),
+  AssignedIp = xtt_client_utils:binary_to_hex(Identity),
   Cmd = "curl -X POST -H \"Content-Type: application/json\" http://" ++ XcrHost ++ ":" ++
     integer_to_list(XcrPort) ++ "/api/xcr/v2/ephook/" ++ AssignedIp ++ "/" ++ Type,
   lager:info("CMD: ~p", [Cmd]),
