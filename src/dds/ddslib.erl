@@ -116,7 +116,7 @@ extract_mdxp_payload(Mdxp) ->
 convert_to_xcr_ipv6(Identity) ->
   Ipv6Str = xtt_utils:identity_to_ipv6_str(Identity),
   AllZeros = lists:flatten(string:replace(Ipv6Str, ":0:", "0000", all)),
-  lists:flatten(string:replace(AllZeros, ":", "", all)).
+  string:to_upper(lists:flatten(string:replace(AllZeros, ":", "", all))).
 
 curl_identity_to_xcr(Identity, Type) when Type =:= "D"; Type =:= "S" ->
   {ok, XcrHost} = application:get_env(xaptum_client, xcr_host),
