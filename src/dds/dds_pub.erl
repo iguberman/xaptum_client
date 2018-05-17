@@ -13,7 +13,6 @@
 
 -behavior(xaptum_endpoint).
 
--define(SUPERCLASS, xtt_endpoint).
 %% API
 -export([start/1]).
 
@@ -23,7 +22,7 @@
   on_send/2,
   on_send/3,
   on_receive/3,
-  receive_loop/3,
+  receive_loop/2,
   on_connect/2,
   on_reconnect/2,
   on_disconnect/2
@@ -31,75 +30,74 @@
 
 
 start(Creds)->
-  xaptum_endpoint_sup:create_endpoint(?MODULE, #dds_pub_data{}, Creds).
+  xaptum_endpoint_sup:create_endpoint(?MODULE, #dds{}, Creds).
 
 %%%===================================================================
 %%% xaptum_endpoint callbacks
 %%%===================================================================
 
-auth(XttServerHost, XttServerPort, Creds, #dds_pub_data{endpoint_data = EndpointData0} = CallbackData)->
+auth(XttServerHost, XttServerPort, Creds, #dds{endpoint_data = EndpointData0} = CallbackData)->
   {ok, XttCreds, EndpointData1} =
-    ?SUPERCLASS:auth(XttServerHost, XttServerPort, Creds, EndpointData0),
-  {ok, XttCreds, CallbackData#dds_pub_data{endpoint_data = EndpointData1}}.
+    xtt_endpoint:auth(XttServerHost, XttServerPort, Creds, EndpointData0),
+  {ok, XttCreds, CallbackData#dds{endpoint_data = EndpointData1}}.
 
-on_connect(EndpointPid, #dds_pub_data{endpoint_data = #endpoint_data{ipv6 = Ipv6}} = CallbackData) ->
+on_connect(EndpointPid, #dds{endpoint_data = #endpoint{ipv6 = Ipv6}} = CallbackData) ->
   send_pub_auth_request(Ipv6, EndpointPid),
-  {ok, CallbackData#dds_pub_data{session_token = awaiting}}.
+  {ok, CallbackData#dds{session_token = awaiting}}.
 
-on_reconnect(EndpointPid, #dds_pub_data{
-  endpoint_data = EndpointData0 = #endpoint_data{ipv6 = Ipv6}} = CallbackData) ->
+on_reconnect(EndpointPid, #dds{
+  endpoint_data = EndpointData0 = #endpoint{ipv6 = Ipv6}} = CallbackData) ->
   send_pub_auth_request(Ipv6, EndpointPid),
-  {ok, EndpointData1} = ?SUPERCLASS:on_reconnect(EndpointPid, EndpointData0),
-  {ok, CallbackData#dds_pub_data{session_token = awaiting, endpoint_data = EndpointData1}}.
+  {ok, EndpointData1} = xtt_endpoint:on_reconnect(EndpointPid, EndpointData0),
+  {ok, CallbackData#dds{session_token = awaiting, endpoint_data = EndpointData1}}.
 
 on_disconnect(_EndpointPid, CallbackData) -> {ok, CallbackData}.
 
-on_receive(<<?DDS_MARKER, ?SIGNAL_MSG, Size:16, _DdsPayload:Size/bytes, _Rest/binary>> = Msg,
-    EndpointPid, #dds_pub_data{session_token = SessionToken,
+on_receive(<<?DDS_MARKER, ?SIGNAL_MSG, Size:16, SessionToken:?SESSION_TOKEN_SIZE/bytes, Payload/binary>> = Msg,
+    EndpointPid, #dds{session_token = SessionToken,
       endpoint_data = EndpointData0} = CallbackData) when is_binary(SessionToken)->
-  {ok, EndpointData1} = ?SUPERCLASS:on_receive(Msg, EndpointPid, EndpointData0),
+  Size = ?SESSION_TOKEN_SIZE + size(Payload), %% sanity check
+  {ok, EndpointData1} = xtt_endpoint:on_receive(Payload, EndpointPid, EndpointData0),
   lager:info("Control message ~p received by ~p", [Msg, EndpointPid]),
-  {ok, CallbackData#dds_pub_data{endpoint_data = EndpointData1}};
+  {ok, CallbackData#dds{endpoint_data = EndpointData1}};
+
 on_receive(<<?DDS_MARKER, ?AUTH_RES, ?SESSION_TOKEN_SIZE:16, SessionToken:?SESSION_TOKEN_SIZE/bytes>>,
-    _EndpointPid, #dds_pub_data{session_token = awaiting, endpoint_data = #endpoint_data{ipv6 = Ipv6}} = CallbackData)->
+    _EndpointPid, #dds{session_token = awaiting, endpoint_data = #endpoint{ipv6 = Ipv6}} = CallbackData)->
   lager:info("Device ~p Auth response received", [Ipv6]),
-  {ok, CallbackData#dds_pub_data{session_token = SessionToken}};
+  {ok, CallbackData#dds{session_token = SessionToken}};
+
 on_receive(<<?DDS_MARKER, ?AUTH_RES, ?SESSION_TOKEN_SIZE:16, _SessionToken:?SESSION_TOKEN_SIZE/bytes>>,
-    _EndpointPid, #dds_pub_data{session_token = awaiting, endpoint_data = #endpoint_data{ipv6 = Ipv6}})->
+    _EndpointPid, #dds{session_token = _NotAwaiting, endpoint_data = #endpoint{ipv6 = Ipv6}})->
   lager:error("Device ~p Auth response received out of sync", [Ipv6]),
-  {error, recv_out_of_sync};
-on_receive(<<?DDS_MARKER, ?SIGNAL_MSG, Size:16, _DdsPayload:Size/bytes, _Rest/binary>>,
-    _EndpointPid, #dds_pub_data{session_token = SessionToken, endpoint_data = #endpoint_data{ipv6 = Ipv6}})
+  {error, auth_out_of_sync};
+
+on_receive(<<?DDS_MARKER, ?SIGNAL_MSG, Size:16, _DdsPayload:Size/bytes, _ActualMsg/binary>>,
+    _EndpointPid, #dds{session_token = SessionToken, endpoint_data = #endpoint{ipv6 = Ipv6}})
   when SessionToken =:= undefined; SessionToken =:= awaiting ->
   lager:error("Device ~p not ready to receive control messages, session token is still ~p", [Ipv6, SessionToken]),
   {error, not_ready}.
 
-receive_loop(TlsSocket, EndpointPid, CallbackData0) ->
-  case erltls:recv(TlsSocket, 0) of
+receive_loop(TlsSocket, EndpointPid) ->
+  CallbackData0 = xaptum_endpoint:get_data(EndpointPid),
+  case ddslib:recv(TlsSocket) of
     {ok, Msg} ->
-      {ok, CallbackData1} = on_receive(Msg, EndpointPid, CallbackData0),
+      {ok, CallbackData1} = on_receive(<<Msg/binary>>, EndpointPid, CallbackData0),
       xaptum_endpoint:set_data(EndpointPid, CallbackData1), %% real time updates
-      receive_loop(TlsSocket, EndpointPid, CallbackData1);
+      receive_loop(TlsSocket, EndpointPid);
     {error, Error} ->
       xaptum_endpoint:ssl_error(EndpointPid, TlsSocket, Error, CallbackData0)
   end.
 
-on_send(Msg0, Dest, #dds_pub_data{
-  session_token = SessionToken,
-  endpoint_data = EndpointData0} = CallbackData) when is_binary(SessionToken)->
-  {Msg1, EndpointData1} = ?SUPERCLASS:on_send(Msg0, Dest, EndpointData0), %% Oh-bject Oh-riented programming
-  Msg2 = ddslib:build_reg_message(SessionToken, Msg1),
-  {ok, Msg2, CallbackData#dds_pub_data{endpoint_data = EndpointData1} };
-on_send(_Msg, _Dest, #dds_pub_data{session_token = SessionToken})
-  when SessionToken =:= undefined; SessionToken =:= awaiting ->
-  lager:error("Can't send reg message when session token is still ~p! Try again later", [SessionToken]),
-  {error, retry_later}.
+%% CONTROL MESSAGE: normally a sub functionality
+on_send(Msg, Dest, #dds{} = CallbackData)->
+  dds_sub:on_send(Msg, Dest, CallbackData).
 
-on_send(Msg0, #dds_pub_data{session_token = SessionToken, endpoint_data = EndpointData0} = CallbackData) when is_binary(SessionToken)->
-  {Msg1, EndpointData1} = ?SUPERCLASS:on_send(Msg0, EndpointData0),
+%% REG MSG
+on_send(Msg0, #dds{session_token = SessionToken, endpoint_data = EndpointData0} = CallbackData) when is_binary(SessionToken)->
+  {ok, Msg1, EndpointData1} = xtt_endpoint:on_send(Msg0, EndpointData0),
   Msg2 = ddslib:build_reg_message(SessionToken, Msg1),
-  {ok, Msg2, CallbackData#dds_pub_data{endpoint_data = EndpointData1} };
-on_send(_Msg, #dds_pub_data{session_token = SessionToken}) when SessionToken =:= undefined; SessionToken =:= awaiting ->
+  {ok, Msg2, CallbackData#dds{endpoint_data = EndpointData1} };
+on_send(_Msg, #dds{session_token = SessionToken}) when SessionToken =:= undefined; SessionToken =:= awaiting ->
   lager:error("Can't send reg message when session token is still ~p! Try again later", [SessionToken]),
   {error, retry_later}.
 

@@ -6,10 +6,7 @@
 -define(DEVICE, device).
 -define(SUBSCRIBER, subscriber).
 
--record(dds_pub_data, {endpoint_data = #endpoint_data{}, session_token}).
-
--record(dds_sub_data, {endpoint_data = #endpoint_data{}, session_token, queue}).
-
+-record(dds, {endpoint_data = #endpoint{}, session_token, queue}).
 
 -define(DDS_MARKER, 120).
 

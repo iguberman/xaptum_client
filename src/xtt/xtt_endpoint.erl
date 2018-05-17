@@ -24,7 +24,7 @@
 -export([
   auth/4,
   on_receive/3,
-  receive_loop/3,
+  receive_loop/2,
   on_send/2,
   on_send/3,
   on_connect/2,
@@ -33,7 +33,7 @@
 ]).
 
 start(Creds)->
-  xaptum_endpoint_sup:create_endpoint(?MODULE, #endpoint_data{}, Creds).
+  xaptum_endpoint_sup:create_endpoint(?MODULE, #endpoint{}, Creds).
 
 
 %%%===================================================================
@@ -46,7 +46,7 @@ auth(XttServerHost, XttServerPort,
     CallbackData)->
   {ok, GroupContextInputs} = xtt_utils:group_context_inputs_tpm(BasenameFile, TpmHost, TpmPort, TpmPassword),
   {ok, #xtt_creds{identity = Identity} = XttCreds} = do_handshake(GroupContextInputs, ClientIdFile, ServerIdFile, XttServerHost, XttServerPort),
-  {ok, XttCreds, CallbackData#endpoint_data{ipv6 = Identity}};
+  {ok, XttCreds, CallbackData#endpoint{ipv6 = Identity}};
 auth(XttServerHost, XttServerPort,
     #file_creds{basename = BasenameFile, gpk = GpkFile, cred = CredFile, sk = SecretKeyFile,
       root_id = RootIdFile, root_pk = RootPubkeyFile, client_id = ClientIdFile, server_id = ServerIdFile},
@@ -56,34 +56,35 @@ auth(XttServerHost, XttServerPort,
   {ok, #xtt_creds{identity = Identity} = XttCreds} = do_handshake(
     GroupContextInputs, ClientIdFile, ServerIdFile,
     XttServerHost, XttServerPort),
-  {ok, XttCreds, CallbackData#endpoint_data{ipv6 = Identity}}.
+  {ok, XttCreds, CallbackData#endpoint{ipv6 = Identity}}.
 
 
-on_receive(_Msg, _EndpointPid, #endpoint_data{num_received = NumReceived} = CallbackData)->
+on_receive(Msg, _EndpointPid, #endpoint{num_received = NumReceived} = CallbackData)->
   lager:debug("Calling ~p:on_receive", [?MODULE]),
-  {ok, CallbackData#endpoint_data{num_received = NumReceived + 1}}.
+  {ok, CallbackData#endpoint{num_received = NumReceived + 1, msg = Msg}}.
 
-receive_loop(TlsSocket, EndpointPid, CallbackData0) ->
+receive_loop(TlsSocket, EndpointPid) ->
+  CallbackData0 = xaptum_endpoint:get_data(EndpointPid),
   case erltls:recv(TlsSocket, 0) of
     {ok, Msg} ->
       {ok, CallbackData1} = on_receive(Msg, EndpointPid, CallbackData0),
       xaptum_endpoint:set_data(EndpointPid, CallbackData1),
-      receive_loop(TlsSocket, EndpointPid, CallbackData1);
+      receive_loop(TlsSocket, EndpointPid);
     {error, Error} ->
       xaptum_endpoint:ssl_error(EndpointPid, TlsSocket, Error, CallbackData0)
   end.
 
-on_send(Msg, _Dest, #endpoint_data{num_received = NumSent} = CallbackData) ->
-  {ok, Msg, CallbackData#endpoint_data{num_sent = NumSent + 1}}.
+on_send(Msg, _Dest, #endpoint{num_received = NumSent} = CallbackData) ->
+  {ok, Msg, CallbackData#endpoint{num_sent = NumSent + 1}}.
 
-on_send(Msg, #endpoint_data{num_sent = NumSent} = CallbackData) ->
-  {ok, Msg, CallbackData#endpoint_data{num_sent = NumSent + 1}}.
+on_send(Msg, #endpoint{num_sent = NumSent} = CallbackData) ->
+  {ok, Msg, CallbackData#endpoint{num_sent = NumSent + 1}}.
 
 on_connect(_EndpointPid, CallbackData) ->
   {ok, CallbackData}.
 
-on_reconnect(_EndpointPid, #endpoint_data{num_reconnects = Reconnects} = CallbackData) ->
-  {ok, CallbackData#endpoint_data{num_reconnects = Reconnects + 1}}.
+on_reconnect(_EndpointPid, #endpoint{num_reconnects = Reconnects} = CallbackData) ->
+  {ok, CallbackData#endpoint{num_reconnects = Reconnects + 1}}.
 
 on_disconnect(_EndpointPid, CallbackData) ->
   {ok, CallbackData}.

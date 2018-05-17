@@ -84,10 +84,18 @@ build_control_message(SessionToken, Message) when is_binary(Message) ->
     build_message(SessionToken, ?SIGNAL_MSG, Message).
 
 recv(Client) ->
-    {ok, FixedHeader} = erltls:recv(Client, 4, 2000),
-    <<?DDS_MARKER:8, _Type:8, Size:16>> = FixedHeader,
-    {ok, Rest} = erltls:recv(Client, Size, 2000),
-    <<FixedHeader/binary, Rest/binary>>.
+  case erltls:recv(Client, 4, 2000) of
+    {ok, FixedHeader} ->
+      <<?DDS_MARKER:8, _Type:8, Size:16>> = FixedHeader,
+       case erltls:recv(Client, Size, 2000) of
+         {ok, Rest} -> {ok, <<FixedHeader/binary, Rest/binary>>};
+         {error, Error} -> lager:error("Error receiving expected ~b bytes", [Size]),
+           {error, Error}
+       end;
+    {error, Error} -> lager:error("Error receiving dds header", [Error]),
+      {error, Error}
+  end.
+
     
 %%=============================================================
 %% Private functions

@@ -9,6 +9,6 @@
 
 -record(xtt_creds, {identity, pseudonym, cert, key}).
 
--record(endpoint_data, {ipv6, num_sent = 0, num_received = 0, num_reconnects = 0}).
+-record(endpoint, {ipv6, num_sent = 0, num_received = 0, num_reconnects = 0, msg = <<>>}).
 
 -endif.

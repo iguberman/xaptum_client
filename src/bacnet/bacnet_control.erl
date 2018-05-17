@@ -1,211 +1,144 @@
 -module(bacnet_control).
 
--behaviour(gen_server).
+-define(SUPERCLASS, dds_sub).
+
+%% xaptum_endpoint callbacks
+-export([
+  auth/4,
+  on_receive/3,
+  receive_loop/2,
+  on_send/2,
+  on_send/3,
+  on_connect/2,
+  on_reconnect/2,
+  on_disconnect/2
+]).
 
 %% export API
 -export([
-	 start_control/0,
-	 start_subscriber/2,
-
-	 stop/1,
-	 send_message/3,
-	 send_message/2,
-
-	 get_message_count/1
-	]).
-
-%% export gen_server callbacks
--export([init/1,
-	 handle_call/3,
-	 handle_cast/2,
-	 handle_info/2,
-	 terminate/2,
-	 code_change/3]).
+  start/1,
+  poll_loop/2
+]).
 
 -include("bacnet.hrl").
 
--record(state, {ip, type, session_token, queue, sent = 0, received = 0, fsm = init, dict, data = <<>>, poll_req = 0, poll_resp = 0}).
+start(Creds)->
+  xaptum_endpoint_sup:create_endpoint(?MODULE, #bacnet_sub{}, Creds).
 
 %%====================================
-%% API
+%% xaptum_endpoint callbacks
 %%====================================
-start_control() ->
-    {ok, App} = xaptum_client:get_application(),
-    {ok, IpFile} = xaptum_client:get_env(App, ipv6_file),
-    {ok, Queue} = xaptum_client:get_env(App, dds_queue),
 
-    SubIp = xaptum_client:read_ipv6_file(IpFile),
-    start_subscriber(SubIp, Queue).
+auth(XttServerHost, XttServerPort, Creds, #bacnet_sub{ dds = DdsData0 } = CallbackData) ->
+  {ok, DdsData1} = dds_sub:auth(XttServerHost, XttServerPort, Creds, DdsData0),
+  {ok, CallbackData#bacnet_sub{dds = DdsData1}}.
 
-start_subscriber(SubIp, Queue) when is_list(SubIp), is_list(Queue) ->
-    Q = list_to_binary(Queue),
-    SIP = xaptum_client:ipv6_to_binary(SubIp),
-    gen_xaptum:start_link({local, ?BACNET_CONTROL}, ?MODULE, [{?BACNET_CONTROL, SIP, Q}], []).
+on_connect(EndpointPid, #bacnet_sub{ dds = DdsData0} = CallbackData) ->
+  {ok, DdsData1} = dds_sub:on_connect(EndpointPid, DdsData0),
+  {ok, CallbackData#bacnet_sub{dds = DdsData1}}.
 
-send_message(Server, Msg) when is_list(Msg) ->
-    send_message(Server, list_to_binary(Msg));
-send_message(Server, Msg) when is_binary(Msg) ->
-    gen_server:cast(Server, {send, Msg}).
+on_reconnect(EndpointPid, #bacnet_sub{ dds = DdsData0} = CallbackData) ->
+  {ok, DdsData1} = dds_sub:on_reconnect(EndpointPid, DdsData0),
+  {ok, CallbackData#bacnet_sub{dds = DdsData1}}.
 
-send_message(Server, Dest, Msg) when is_list(Dest), is_list(Msg) ->
-    send_message(Server, Dest, list_to_binary(Msg));
-send_message(Server, Dest, Msg) when is_list(Dest), is_binary(Msg) ->
-    D = xaptum_client:ipv6_to_binary(Dest),
-    gen_server:cast(Server, {send, D, Msg}).
-
-stop(Server) ->
-    gen_server:cast(Server, stop).
-
-get_message_count(Server) ->
-    gen_server:call(Server, get_message_count).
-    
-%%====================================
-%% callbacks
-%%====================================
-init([{?BACNET_CONTROL, SIP, Q}]) ->
-    self() ! init_session,
-    {ok, #state{ip = SIP, type = ?BACNET_CONTROL, queue = Q, dict = dict:new()}}.
-
-terminate(_Reason, _State) ->
-    ok.
-
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
-
-handle_info(init_session, #state{ip = SIP, type = ?BACNET_CONTROL, queue = Q} = State) ->
-    ok = create_dds_subscriber(SIP, Q),
-    NewState = State#state{fsm = init},
-    send_init_timeout(),
-    {noreply, NewState};
-
-handle_info(init_timeout, #state{fsm = init} = State) ->
-    {stop, init_timeout, State};
-
-handle_info(init_timeout, #state{fsm = op} = State) ->
-    {noreply, State};
-
-handle_info({recv, RawData}, #state{fsm = init, type = ?BACNET_CONTROL, data = Bin} = State) ->
-    Data = erlang:list_to_binary([Bin, RawData]),
-    <<120, _PacketType:8, _Size:16, SessionToken:36/binary, Rest/binary>> = Data,
-    lager:info("Received Authentication Response"),
-    poll_loop(write_poll),
-    {noreply, State#state{session_token = SessionToken, fsm = op, data = Rest}};
-    
-handle_info({recv, RawData}, #state{fsm = op, type = ?BACNET_CONTROL, data = Bin} = State) ->
-    %% Log dds message packets
-
-    MatchFun = fun Fn(Data, #state{received = R,poll_resp = PRESP, poll_req = PREQ, dict = Dict} = FnState)->
-		       case Data of 
-			   %% This is a control message
-			   <<120, _PacketType:8, Size:16, DdsPayload:Size/bytes, Rest/binary>> ->
-			       %% Get bacnet request
-			       <<_SessionToken:36/binary, Mdxp/binary>> = DdsPayload,
-
-			       %% Decode the original msg
-			       OriginalMsg = base64:decode(ddslib:extract_mdxp_payload(Mdxp)),
-
-			       %% If the Original msg matches heartbeat
-			       FnNewState = case OriginalMsg of
-						<<?IAM, Ip/binary>> ->
-						    DestIp = xaptum_client:ipv6_binary_to_text(Ip),
-						    NewDict = dict:store(DestIp, 1, Dict),
-						    FnState#state{received = R+1, dict = NewDict, data = Rest};
-
-						BacnetAck ->
-						    case bacnet_utils:get_apdu_from_message(BacnetAck) of
-							{ok, Apdu} ->
-							    lager:info("Sent ~p Poll Requests, Received ~p Poll Responses", [PREQ, PRESP+1]),
-							    case bacnet_utils:get_pdu_type(Apdu) of
-								pdu_type_simple_ack ->
-								    lager:info("Received bacnet Simple ACK"),
-								    ignore;
-							
-								pdu_type_complex_ack ->
-								    case bacnet_utils:get_value_from_complex_ack(Apdu) of
-									{ok, Id, Tag} ->
-									    lager:info("Received bacnet Complex ACK with Id: ~p, Tag: ~p", [Id, Tag]);
-									CV ->
-									    lager:info("Got ~p while processing Complex Ack. Ignore", [CV])
-								    end
-							    end;
-							ApduError ->
-							    lager:info("Got ~p while processing BacknetAck. Ignore", [ApduError])
-						    end,
-						    FnState#state{received = R+1, poll_resp = PRESP+1, data = Rest}
-					    end,
-			       Fn(Rest, FnNewState);
-			   
-			   Rest ->
-			       {Rest, FnState}
-		       end
-	       end,
-    {_, NewState} = MatchFun(erlang:list_to_binary([Bin, RawData]), State),
-    {noreply, NewState};
-       
-handle_info({poll_loop, write_poll}, #state{type = ?BACNET_CONTROL, dict = Dict, poll_req = PREQ} = State) ->
-    Ips = dict:fetch_keys(Dict),
-    lists:foreach( fun(Ip) ->
-			   IpBytes = xaptum_client:ipv6_to_binary(Ip),
-			   <<Id:64, Tag:64>> = IpBytes,
-			   {ok, Control} = bacnet_utils:build_write_property_request(Id, Tag),
-			   ?MODULE:send_message(self(), Ip, Control),
-			   lager:info("Sending write property request with Id: ~p, Tag: ~p", [Id, Tag])
-		   end, Ips),
-    poll_loop(read_poll),
-    {noreply, State#state{poll_req = PREQ+length(Ips)}};
-
-handle_info({poll_loop, read_poll}, #state{type = ?BACNET_CONTROL, dict = Dict, poll_req = PREQ} = State) ->
-    Ips = dict:fetch_keys(Dict),
-    lists:foreach( fun(Ip) ->
-			   {ok, Control} = bacnet_utils:build_read_property_request(),
-			   ?MODULE:send_message(self(), Ip, Control),
-			   lager:info("Sending read property request")
-		   end, Ips),
-    poll_loop(write_poll),
-    {noreply, State#state{poll_req = PREQ+length(Ips)}};
-
-handle_info(_Msg, State) ->
-    {noreply, State}.
+on_disconnect(EndpointPid, #bacnet_sub{ dds = DdsData0} = CallbackData) ->
+  {ok, DdsData1} = dds_sub:on_disconnect(EndpointPid, DdsData0),
+  {ok, CallbackData#bacnet_sub{dds = DdsData1}}.
 
 
-handle_cast({send, Msg}, #state{session_token = ST, sent = S} = State) ->
-    %% send a regular message
-    Packet = ddslib:build_reg_message(ST, Msg),
-    ok = gen_xaptum:send(Packet),
-    {noreply, State#state{sent = S+1}};
+%% AUTH RESP RECEIVE
+%% TODO when the session token concept goes away this initial receive should probably be on_(re)connect instead
+on_receive(Msg, EndpointPid, #bacnet_sub{dds = #dds{session_token = SessionToken} = DdsCallbackData0 } = CallbackData0)
+  when is_atom(SessionToken) ->
+  case dds_sub:on_receive(Msg, EndpointPid, DdsCallbackData0) of
+    {ok, #dds{session_token = SessionToken} = DdsCallbackData1}
+      when is_binary(SessionToken), size(SessionToken) =:= ?SESSION_TOKEN_SIZE ->
+      CallbackData1 = CallbackData0#bacnet_sub{dds = DdsCallbackData1},
+      {ok, Pid} = spawn_link(?MODULE, poll_loop, [write_poll, EndpointPid]),
+      {ok, CallbackData1#bacnet_sub{poll_pid = Pid}};
+    {error, Error} -> {error, Error}
+  end;
+%% REG MSG RECEIVE
+on_receive(Msg, EndpointPid, #bacnet_sub{dict = Dict, poll_resp = PollResp, dds = #dds{session_token = SessionToken} = DdsCallbackData0} = CallbackData)
+  when is_binary(SessionToken), size(SessionToken) =:= ?SESSION_TOKEN_SIZE ->
+  %% Extract payload out of DDS message into Mdxp
+  {ok, #dds{endpoint_data = #endpoint{msg = Mdxp}} = DdsCallbackData1} =
+    dds_pub:on_receive(Msg, EndpointPid, DdsCallbackData0),
+  %% Decode the original msg
+  OriginalMsg = base64:decode(ddslib:extract_mdxp_payload(Mdxp)),
+  case OriginalMsg of
+    <<?IAM, Ip/binary>> ->
+      DestIp = xaptum_client:ipv6_binary_to_text(Ip),
+      NewDict = dict:store(DestIp, 1, Dict),
+      {ok, #bacnet_sub{dds = DdsCallbackData1, dict = NewDict}};
+    BacnetAck ->
+      process_bacnet_ack(BacnetAck),
+      {ok, #bacnet_sub{dds = DdsCallbackData1, poll_resp = PollResp + 1}}
+  end.
 
-handle_cast({send, Dest, Msg}, #state{session_token = ST, sent = S} = State) ->
-    %% send a control message
-    Control = <<Dest/binary,Msg/binary>>,
-    Packet = ddslib:build_control_message(ST, Control),
-    ok = gen_xaptum:send(Packet),
-    {noreply, State#state{sent = S+1}};
+receive_loop(TlsSocket, EndpointPid) ->
+  CallbackData0 = xaptum_endpoint:get_data(EndpointPid),
+  case ddslib:recv(TlsSocket) of
+    {ok, Msg} ->
+      {ok, CallbackData1} = ?MODULE:on_receive(<<Msg/binary>>, EndpointPid, CallbackData0),
+      xaptum_endpoint:set_data(EndpointPid, CallbackData1),
+      receive_loop(TlsSocket, EndpointPid);
+    {error, Error} ->
+      xaptum_endpoint:ssl_error(EndpointPid, TlsSocket, Error, CallbackData0)
+  end.
 
-handle_cast(stop, State) ->
-    {stop, normal, State};
-handle_cast(_Msg, State) ->
-    {noreply, State}.
+%% CONTROL MESSAGE
+on_send(Msg0, Dest, #bacnet_pub{dds = DdsCallbackData0} = CallbackData) ->
+  {ok, Msg1, DdsCallbackData1} = dds_sub:on_send(Msg0, Dest, DdsCallbackData0),
+  {ok, Msg1, CallbackData#bacnet_pub{dds = DdsCallbackData1}}.
 
-handle_call(get_message_count, _From, #state{type = ?BACNET_CONTROL, sent = S, received = R} = State) ->
-    Reply = {?BACNET_CONTROL, S, R},
-    {reply, Reply, State};
-handle_call(_Msg, _From, State) ->
-    Reply = ok,
-    {reply, Reply, State}.
-
+%% REGULAR MESSAGE
+on_send(Msg0, #bacnet_pub{dds = DdsCallbackData0} = CallbackData) ->
+  {ok, Msg1, DdsCallbackData1} = dds_sub:on_send(Msg0, DdsCallbackData0),
+  {ok, Msg1, CallbackData#bacnet_pub{dds = DdsCallbackData1}}.
 
 %%====================================
 %% Private functions
 %%====================================
-create_dds_subscriber(Ip, Q) ->
-    %% build Authentication Request
-    SubReq = ddslib:build_init_sub_req(Ip, Q),
-    ok = gen_xaptum:send(SubReq),
-    lager:info("Sent subscriber authentication Request"),
-    ok.
+process_bacnet_ack(BacnetAck)->
+  case bacnet_utils:get_apdu_from_message(BacnetAck) of
+    {ok, Apdu} ->
+      case bacnet_utils:get_pdu_type(Apdu) of
+        pdu_type_simple_ack ->
+          lager:info("Received bacnet Simple ACK");
+        pdu_type_complex_ack ->
+          case bacnet_utils:get_value_from_complex_ack(Apdu) of
+            {ok, Id, Tag} ->
+              lager:info("Received bacnet Complex ACK with Id: ~p, Tag: ~p", [Id, Tag]);
+            CV ->
+              lager:info("Got ~p while processing Complex Ack. Ignore", [CV])
+          end
+      end;
+    ApduError ->
+      lager:info("Got ~p while processing BacknetAck. Ignore", [ApduError])
+  end.
 
-poll_loop(Type) ->
-    erlang:send_after(2500, self(), {poll_loop, Type}).
 
-send_init_timeout() ->
-    erlang:send_after(2000, self(), init_timeout).
+poll_loop(write_poll, EndpointPid) ->
+  timer:sleep(2500),
+  #bacnet_sub{dict = Dict} = xaptum_endpoint:get_data(EndpointPid),
+  Ips = dict:fetch_keys(Dict),
+  lists:foreach( fun(Ip) ->
+    IpBytes = xaptum_client:ipv6_to_binary(Ip),
+    <<Id:64, Tag:64>> = IpBytes,
+    {ok, Control} = bacnet_utils:build_write_property_request(Id, Tag),
+    xaptum_endpoint:send_message(EndpointPid, Control, Ip),
+    lager:info("Sending write property request with Id: ~p, Tag: ~p", [Id, Tag])
+                 end, Ips),
+  pool_loop(read_poll, EndpointPid);
+poll_loop(read_poll, EndpointPid) ->
+  timer:sleep(2500),
+  #bacnet_sub{dict = Dict} = xaptum_endpoint:get_data(EndpointPid),
+  Ips = dict:fetch_keys(Dict),
+  lists:foreach( fun(Ip) ->
+    {ok, Control} = bacnet_utils:build_read_property_request(),
+    xaptum_endpoint:send_message(EndpointPid, Control, Ip),
+    lager:info("Sending read property request")
+   end, Ips),
+  poll_loop(write_poll, EndpointPid).
+

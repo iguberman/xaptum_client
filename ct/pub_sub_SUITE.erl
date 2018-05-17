@@ -42,6 +42,7 @@ init_per_suite(Config)->
   Config.
 
 end_per_suite(Config) ->
+  ct:print("Config: ~p~n", [Config]),
   GidFile = ?config(?GID_FILE_CONFIG, Config),
   ct:print("Deleting temporary file ~p", [GidFile]),
   file:delete(GidFile),
@@ -55,6 +56,7 @@ test_pub(Config)->
   test_pub_send_message(Pub, "Hello from pub!", 1),
   test_pub_send_message(Pub, "Message 1 from pub!", 2),
   test_pub_send_message(Pub, "Message 2 from pub!", 3),
+  ct:print("New config: ~p~n", [NewConfig]),
   NewConfig.
 
 test_sub(Config)->
@@ -66,6 +68,7 @@ test_sub(Config)->
   test_sub_send_message(Sub, "Hello from sub!", 1),
   test_pub_send_message(Sub, "Message 1 from sub!", 2),
   test_pub_send_message(Sub, "Message 2 from sub!", 3),
+  ct:print("New config: ~p~n", [NewConfig]),
   NewConfig.
 
 test_pub_sub(Config) ->
@@ -84,6 +87,8 @@ test_pub_sub(Config) ->
 
   test_sub_send_message(Sub, "Signal from sub!", 1),
   test_pub_recv_message(Pub, 1),
+
+  ct:print("New config: ~p~n", [NewConfig]),
   NewConfig.
 
 
@@ -93,12 +98,12 @@ test_pub_sub(Config) ->
 
 wait_for_pub_session_token(Pub, Timeout)->
   wait_for_session_token(Pub, undefined,
-    fun(Data)->#dds_pub_data{session_token = SessionToken} = Data, SessionToken end,
+    fun(Data)->#dds{session_token = SessionToken} = Data, SessionToken end,
     Timeout).
 
 wait_for_sub_session_token(Sub, Timeout)->
   wait_for_session_token(Sub, undefined,
-    fun(Data)-> #dds_sub_data{session_token = SessionToken} = Data, SessionToken end,
+    fun(Data)-> #dds{session_token = SessionToken} = Data, SessionToken end,
     Timeout).
 
 wait_for_session_token(_EndpointPid, _SessionToken, _STFun, Timeout) when Timeout =< 0->
@@ -114,22 +119,22 @@ wait_for_session_token(_EndpointPid, SessionToken, _STFun, Timeout) when is_bina
 test_pub_send_message(PubPid, Message, SendSequence)->
   xaptum_endpoint:send_message(PubPid, Message),
   PubData = xaptum_endpoint:get_data(PubPid),
-  #dds_pub_data{endpoint_data = #endpoint_data{num_sent = SendSequence}} = PubData.
+  #dds{endpoint_data = #endpoint{num_sent = SendSequence}} = PubData.
 
 test_sub_send_message(SubPid, Message, SendSequence)->
   xaptum_endpoint:send_message(SubPid, Message),
   SubData = xaptum_endpoint:get_data(SubPid),
-  #dds_sub_data{endpoint_data = #endpoint_data{num_sent = SendSequence}} = SubData.
+  #dds{endpoint_data = #endpoint{num_sent = SendSequence}} = SubData.
 
 test_pub_recv_message(PubPid, RecvSequence)->
   timer:sleep(?MESSAGE_LATENCY),
   PubData = xaptum_endpoint:get_data(PubPid),
-  #dds_pub_data{endpoint_data = #endpoint_data{num_received = RecvSequence}} = PubData.
+  #dds{endpoint_data = #endpoint{num_received = RecvSequence}} = PubData.
 
 test_sub_recv_message(SubPid, RecvSequence)->
   timer:sleep(?MESSAGE_LATENCY),
   SubData = xaptum_endpoint:get_data(SubPid),
-  #dds_sub_data{endpoint_data = #endpoint_data{num_received = RecvSequence}} = SubData.
+  #dds{endpoint_data = #endpoint{num_received = RecvSequence}} = SubData.
 
 init_file_creds(Config, MemberDir)->
   DataDir = ?config(data_dir, Config),
@@ -137,22 +142,24 @@ init_file_creds(Config, MemberDir)->
 
   NullRequestedClientIdFile = filename:join([DataDir, ?REQUESTED_CLIENT_ID_FILE]),
 
-
   GroupDir = filename:join([PrivDir, ?GROUP_DIR]),
+  GidCsvFile = register_gpk_with_mb(GroupDir),
+
+  {[{?GID_FILE_CONFIG, GidCsvFile} | Config ], xtt_endpoint:init_file_creds(
+    NullRequestedClientIdFile,
+    GroupDir,
+    filename:join([DataDir, ?CERT_DIR]),
+    filename:join([PrivDir, MemberDir]))}.
+
+register_gpk_with_mb(GroupDir)->
   BasenameFile = filename:join([GroupDir, ?BASENAME_FILE]),
   GpkFile = filename:join([GroupDir, ?DAA_GPK_FILE]),
   {ok, Basename} = file:read_file(BasenameFile),
   {ok, Gpk} = file:read_file(GpkFile),
   Gid = crypto:hash(sha256, Gpk),
-  GidFile = filename:join([?MB_PUBLIC_KEYS_DIR, xtt_client_utils:binary_to_hex(Gid) ++ ".csv"]),
+  GidCsvFile = filename:join([?MB_PUBLIC_KEYS_DIR, xtt_client_utils:binary_to_hex(Gid) ++ ".csv"]),
   GpkHex = list_to_binary(xtt_client_utils:binary_to_hex(Gpk)),
   BasenameHex = list_to_binary(xtt_client_utils:binary_to_hex(Basename)),
-  file:write_file(GidFile, <<"#basename,gpk\n",BasenameHex/binary,",", GpkHex/binary>>),
-
-  ct:print("Created file ~p with contents ~p", [GidFile, file:read_file(GidFile)]),
-
-  {[{?GID_FILE_CONFIG, GidFile} | Config ], xtt_endpoint:init_file_creds(
-    NullRequestedClientIdFile,
-    GroupDir,
-    filename:join([DataDir, ?CERT_DIR]),
-    filename:join([PrivDir, MemberDir]))}.
+  file:write_file(GidCsvFile, <<"#basename,gpk\n",BasenameHex/binary,",", GpkHex/binary>>),
+  ct:print("Created file ~p with contents ~p", [GidCsvFile, file:read_file(GidCsvFile)]),
+  GidCsvFile.

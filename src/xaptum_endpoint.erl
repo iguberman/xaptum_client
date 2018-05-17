@@ -46,7 +46,7 @@
 -callback auth(Host :: list(), Port :: integer(), Creds :: term(), CallbackData :: any())->
   {Identity :: binary() , Cert :: binary(), Key :: binary()}.
 -callback on_receive(Msg :: binary(), EndpointPid :: pid(), CallbackData :: any()) -> {ok, CallbackData :: any()}.
--callback receive_loop(TlsSocket :: tuple(), EndpointPid :: pid(), CallbackData :: any()) -> ok.
+-callback receive_loop(TlsSocket :: tuple(), EndpointPid :: pid()) -> ok.
 -callback on_send(Msg :: binary(), Dest :: any(), CallbackData :: any()) ->
   {ok, Msg :: binary(), CallbackData :: any()}.
 -callback on_send(Msg :: binary(), CallbackData :: any()) ->
@@ -179,8 +179,8 @@ handle_cast(start_receiving, #state{
     tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket,
     callback_module = CallbackModule, callback_data = CallbackData} = State)
     when is_port(TcpSocket), is_pid(SslPid) ->
-  Parent = self(),
-  ReceiverPid = spawn(CallbackModule, receive_loop, [TlsSocket, Parent, CallbackData]),
+  EndpointPid = self(),
+  ReceiverPid = spawn_link(CallbackModule, receive_loop, [TlsSocket, EndpointPid]),
   {noreply, State#state{receiver_pid = ReceiverPid, callback_data = CallbackData}};
 
 handle_cast({ssl_error, _Error}, #state{tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket} = State)
