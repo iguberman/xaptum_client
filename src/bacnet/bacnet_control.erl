@@ -23,7 +23,7 @@
 -include("bacnet.hrl").
 
 start(Creds)->
-  xaptum_endpoint_sup:create_endpoint(?MODULE, #bacnet_sub{dict = dict:new()}, Creds).
+  xaptum_endpoint_sup:create_endpoint(?MODULE, #bacnet_sub{}, Creds).
 
 %%====================================
 %% xaptum_endpoint callbacks
