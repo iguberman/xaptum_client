@@ -222,7 +222,7 @@ receive_loop(TlsSocket, EndpointPid, CallbackModule) ->
   case CallbackModule:do_receive(TlsSocket) of
     {ok, Msg} ->
       xaptum_endpoint:received(Msg, EndpointPid),
-      receive_loop(TlsSocket, EndpointPid);
+      receive_loop(TlsSocket, EndpointPid, CallbackModule);
     {error, Error} ->
       xaptum_endpoint:ssl_error(EndpointPid, Error)
   end.
