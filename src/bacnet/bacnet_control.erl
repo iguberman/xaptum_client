@@ -1,6 +1,8 @@
 -module(bacnet_control).
 
--define(SUPERCLASS, dds_sub).
+-behaviour(xaptum_endpoint).
+
+-include("bacnet.hrl").
 
 %% xaptum_endpoint callbacks
 -export([
@@ -19,8 +21,6 @@
   start/1,
   poll_loop/2
 ]).
-
--include("bacnet.hrl").
 
 start(Creds)->
   xaptum_endpoint_sup:create_endpoint(?MODULE, #bacnet_sub{}, Creds).

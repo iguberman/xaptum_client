@@ -2,6 +2,10 @@
 
 -behaviour(xaptum_endpoint).
 
+-include("bacnet.hrl").
+-include("xtt_endpoint.hrl").
+-include("dds.hrl").
+
 %% xaptum_endpoint callbacks
 -export([
   auth/4,
@@ -19,15 +23,6 @@
   start/1,
   heartbeat_loop/2
 ]).
-
--include("bacnet.hrl").
-
--behavior(xaptum_endpoint).
-
--define(SUPERCLASS, dds_pub).
-
--include("xtt_endpoint.hrl").
--include("dds.hrl").
 
 start(Creds)->
   xaptum_endpoint_sup:create_endpoint(?MODULE, #bacnet_pub{}, Creds).

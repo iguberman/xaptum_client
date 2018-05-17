@@ -11,8 +11,6 @@
 
 -behavior(xaptum_endpoint).
 
--define(SUPERCLASS, xtt_endpoint).
-
 -include("xtt_endpoint.hrl").
 
 %% API
@@ -22,7 +20,7 @@
 -export([
   auth/4,
   on_receive/3,
-  receive_loop/3,
+  do_receive/1,
   on_send/2,
   on_send/3,
   on_connect/2,
@@ -32,27 +30,27 @@
 
 
 auth(XttServerHost, XttServerPort, Creds, CallbackData)->
-  ?SUPERCLASS:auth(XttServerHost, XttServerPort, Creds, CallbackData).
+  xtt_endpoint:auth(XttServerHost, XttServerPort, Creds, CallbackData).
 
 %% TODOs
 on_receive(_Arg0, _Arg1, _Arg2) ->
   erlang:error(not_implemented).
 
-receive_loop(_Arg0, _Arg1, _Arg2) ->
-  erlang:error(not_implemented).
+do_receive(TlsSocket) ->
+  xtt_endpoing:do_receive(TlsSocket).
 
 on_send(Msg, Dest, CallbackData) ->
-  ?SUPERCLASS:on_send(Msg, Dest, CallbackData).
+  xtt_endpoint:on_send(Msg, Dest, CallbackData).
 
 on_send(Msg, CallbackData) ->
-  ?SUPERCLASS:on_send(Msg, CallbackData).
+  xtt_endpoint:on_send(Msg, CallbackData).
 
 on_connect(EndpointPid, CallbackData) ->
-  ?SUPERCLASS:on_connect(EndpointPid, CallbackData).
+  xtt_endpoint:on_connect(EndpointPid, CallbackData).
 
 on_reconnect(EndpointPid, CallbackData) ->
-  ?SUPERCLASS:on_reconnect(EndpointPid, CallbackData).
+  xtt_endpoint:on_reconnect(EndpointPid, CallbackData).
 
 on_disconnect(EndpointPid, CallbackData) ->
-  ?SUPERCLASS:on_disconnect(EndpointPid, CallbackData).
+  xtt_endpoint:on_disconnect(EndpointPid, CallbackData).
 
