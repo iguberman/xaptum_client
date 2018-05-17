@@ -59,7 +59,7 @@ on_receive(Msg, EndpointPid, #bacnet_sub{dds = #dds{session_token = SessionToken
     {error, Error} -> {error, Error}
   end;
 %% REG MSG RECEIVE
-on_receive(Msg, EndpointPid, #bacnet_sub{dict = Dict, poll_reqs = PollReqs, dds = #dds{session_token = SessionToken} = DdsCallbackData0} = CallbackData)
+on_receive(Msg, EndpointPid, #bacnet_sub{dict = Dict, poll_reqs = PollReqs, dds = #dds{session_token = SessionToken} = DdsCallbackData0})
   when is_binary(SessionToken), size(SessionToken) =:= ?SESSION_TOKEN_SIZE ->
   %% Extract payload out of DDS message into Mdxp
   {ok, #dds{endpoint_data = #endpoint{msg = Mdxp}} = DdsCallbackData1} =
@@ -121,7 +121,7 @@ poll_loop(write_poll, EndpointPid) ->
     xaptum_endpoint:send_message(EndpointPid, Control, Ip),
     lager:info("Sending write property request with Id: ~p, Tag: ~p", [Id, Tag])
                  end, Ips),
-  pool_loop(read_poll, EndpointPid);
+  poll_loop(read_poll, EndpointPid);
 poll_loop(read_poll, EndpointPid) ->
   timer:sleep(2500),
   #bacnet_sub{dict = Dict} = xaptum_endpoint:get_data(EndpointPid),
