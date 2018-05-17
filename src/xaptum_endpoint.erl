@@ -20,8 +20,9 @@
   send_message/3,
   send_request/2,
   start_receiving/1,
+  received/2,
+  receive_loop/3,
   get_data/1,
-  set_data/2,
   ssl_error/2,
   disconnect/1
   ]).
@@ -46,7 +47,7 @@
 -callback auth(Host :: list(), Port :: integer(), Creds :: term(), CallbackData :: any())->
   {Identity :: binary() , Cert :: binary(), Key :: binary()}.
 -callback on_receive(Msg :: binary(), EndpointPid :: pid(), CallbackData :: any()) -> {ok, CallbackData :: any()}.
--callback receive_loop(TlsSocket :: tuple(), EndpointPid :: pid()) -> ok.
+-callback do_receive(TlsSocket :: tuple()) -> {ok, Msg :: any} | {error, Error :: any}.
 -callback on_send(Msg :: binary(), Dest :: any(), CallbackData :: any()) ->
   {ok, Msg :: binary(), CallbackData :: any()}.
 -callback on_send(Msg :: binary(), CallbackData :: any()) ->
@@ -76,11 +77,11 @@ send_message(EndpointPid, Msg)->
 start_receiving(EndpointPid)->
   gen_server:cast(EndpointPid, start_receiving).
 
+received(EndpointPid, Msg)->
+  gen_server:cast(EndpointPid, {received, Msg}).
+
 get_data(EndpointPid)->
   gen_server:call(EndpointPid, get_data).
-
-set_data(EndpointPid, NewData)->
-  gen_server:cast(EndpointPid, {set_data, NewData}).
 
 ssl_error(EndpointPid, Error) ->
   gen_server:cast(EndpointPid, {ssl_error, Error}).
@@ -128,7 +129,7 @@ handle_cast(connect, #state{
     when is_binary(Cert), is_binary(Key)->
   {ok, TlsSocket} = erltls:connect(XaptumHost, TlsPort,
     [binary,
-      {active, false}, %% TODO make configurable
+      {active, false},
       {reuseaddr, true},
       {packet, 0},
       {keepalive, true},
@@ -174,25 +175,26 @@ handle_cast({send_request, Request}, #state{
   lager:info("Sending request ~p", [Request]),
   erltls:send(TlsSocket, Request),
   {noreply, State};
+
 %% Handle {active, false} mode
 handle_cast(start_receiving, #state{
     tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket,
     callback_module = CallbackModule, callback_data = CallbackData} = State)
     when is_port(TcpSocket), is_pid(SslPid) ->
   EndpointPid = self(),
-  ReceiverPid = spawn_link(CallbackModule, receive_loop, [TlsSocket, EndpointPid]),
+  ReceiverPid = spawn_link(?MODULE, receive_loop, [TlsSocket, EndpointPid, CallbackModule]),
   {noreply, State#state{receiver_pid = ReceiverPid, callback_data = CallbackData}};
+
+handle_cast({received, Msg}, #state{callback_module = CallbackModule, callback_data = CallbackData} = State) ->
+  CallbackModule:on_receive(Msg, CallbackData);
 
 handle_cast({ssl_error, _Error}, #state{tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket} = State)
     when is_port(TcpSocket), is_pid(SslPid) ->
     erltls:close(TlsSocket),
     gen_server:cast(self(), connect),
-  {noreply, State};
+  {noreply, State}.
 
-handle_cast({set_data, NewData}, State)->
-  {noreply, State#state{callback_data = NewData}}.
-
-%% Handle {active, [once|N]} mode
+%% Handle {active, [once|N]} mode -- TODO maybe remove as there is less control over how messages are received
 handle_info({ssl, TlsSocket, Msg}, #state{tls_socket = TlsSocket, callback_module = CallbackModule, callback_data = CallbackData0} = State) ->
   {ok, CallbackData1} = CallbackModule:on_receive(Msg, self(), CallbackData0),
   {noreply, State#state{callback_data = CallbackData1}};
@@ -215,3 +217,12 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+receive_loop(TlsSocket, EndpointPid, CallbackModule) ->
+  case CallbackModule:do_receive(TlsSocket) of
+    {ok, Msg} ->
+      xaptum_endpoint:received(Msg, EndpointPid),
+      receive_loop(TlsSocket, EndpointPid);
+    {error, Error} ->
+      xaptum_endpoint:ssl_error(EndpointPid, Error)
+  end.

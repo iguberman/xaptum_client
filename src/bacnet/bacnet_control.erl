@@ -6,7 +6,7 @@
 -export([
   auth/4,
   on_receive/3,
-  receive_loop/2,
+  do_receive/1,
   on_send/2,
   on_send/3,
   on_connect/2,
@@ -23,7 +23,7 @@
 -include("bacnet.hrl").
 
 start(Creds)->
-  xaptum_endpoint_sup:create_endpoint(?MODULE, #bacnet_sub{}, Creds).
+  xaptum_endpoint_sup:create_endpoint(?MODULE, #bacnet_sub{dict = dict:new()}, Creds).
 
 %%====================================
 %% xaptum_endpoint callbacks
@@ -59,7 +59,7 @@ on_receive(Msg, EndpointPid, #bacnet_sub{dds = #dds{session_token = SessionToken
     {error, Error} -> {error, Error}
   end;
 %% REG MSG RECEIVE
-on_receive(Msg, EndpointPid, #bacnet_sub{dict = Dict, poll_resp = PollResp, dds = #dds{session_token = SessionToken} = DdsCallbackData0} = CallbackData)
+on_receive(Msg, EndpointPid, #bacnet_sub{dict = Dict, poll_reqs = PollReqs, dds = #dds{session_token = SessionToken} = DdsCallbackData0} = CallbackData)
   when is_binary(SessionToken), size(SessionToken) =:= ?SESSION_TOKEN_SIZE ->
   %% Extract payload out of DDS message into Mdxp
   {ok, #dds{endpoint_data = #endpoint{msg = Mdxp}} = DdsCallbackData1} =
@@ -73,19 +73,11 @@ on_receive(Msg, EndpointPid, #bacnet_sub{dict = Dict, poll_resp = PollResp, dds 
       {ok, #bacnet_sub{dds = DdsCallbackData1, dict = NewDict}};
     BacnetAck ->
       process_bacnet_ack(BacnetAck),
-      {ok, #bacnet_sub{dds = DdsCallbackData1, poll_resp = PollResp + 1}}
+      {ok, #bacnet_sub{dds = DdsCallbackData1, poll_reqs = PollReqs + 1}}
   end.
 
-receive_loop(TlsSocket, EndpointPid) ->
-  CallbackData0 = xaptum_endpoint:get_data(EndpointPid),
-  case ddslib:recv(TlsSocket) of
-    {ok, Msg} ->
-      {ok, CallbackData1} = ?MODULE:on_receive(<<Msg/binary>>, EndpointPid, CallbackData0),
-      xaptum_endpoint:set_data(EndpointPid, CallbackData1),
-      receive_loop(TlsSocket, EndpointPid);
-    {error, Error} ->
-      xaptum_endpoint:ssl_error(EndpointPid, TlsSocket, Error, CallbackData0)
-  end.
+do_receive(TlsSocket)->
+  dds_sub:do_receive(TlsSocket).
 
 %% CONTROL MESSAGE
 on_send(Msg0, Dest, #bacnet_pub{dds = DdsCallbackData0} = CallbackData) ->
@@ -117,7 +109,6 @@ process_bacnet_ack(BacnetAck)->
     ApduError ->
       lager:info("Got ~p while processing BacknetAck. Ignore", [ApduError])
   end.
-
 
 poll_loop(write_poll, EndpointPid) ->
   timer:sleep(2500),

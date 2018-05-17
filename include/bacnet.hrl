@@ -9,6 +9,6 @@
 
 -record(bacnet_pub, {dds = #dds{}, udp_sent = 0, udp_recv = 0, udp_data, udp_socket, heartbeat_pid}).
 
--record(bacnet_sub, {dds = #dds(), dict = dict:new(), poll_resp = 0, poll_rec = 0, poll_pid}).
+-record(bacnet_sub, {dds = #dds(), dict, write_reqs = 0, read_reqs = 0, poll_reqs = 0, poll_pid}).
 
 -endif.

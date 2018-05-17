@@ -24,7 +24,7 @@
 -export([
   auth/4,
   on_receive/3,
-  receive_loop/2,
+  do_receive/1,
   on_send/2,
   on_send/3,
   on_connect/2,
@@ -58,21 +58,12 @@ auth(XttServerHost, XttServerPort,
     XttServerHost, XttServerPort),
   {ok, XttCreds, CallbackData#endpoint{ipv6 = Identity}}.
 
-
 on_receive(Msg, _EndpointPid, #endpoint{num_received = NumReceived} = CallbackData)->
   lager:debug("Calling ~p:on_receive", [?MODULE]),
   {ok, CallbackData#endpoint{num_received = NumReceived + 1, msg = Msg}}.
 
-receive_loop(TlsSocket, EndpointPid) ->
-  CallbackData0 = xaptum_endpoint:get_data(EndpointPid),
-  case erltls:recv(TlsSocket, 0) of
-    {ok, Msg} ->
-      {ok, CallbackData1} = on_receive(Msg, EndpointPid, CallbackData0),
-      xaptum_endpoint:set_data(EndpointPid, CallbackData1),
-      receive_loop(TlsSocket, EndpointPid);
-    {error, Error} ->
-      xaptum_endpoint:ssl_error(EndpointPid, TlsSocket, Error, CallbackData0)
-  end.
+do_receive(TlsSocket)->
+  erltls:recv(TlsSocket, 0).
 
 on_send(Msg, _Dest, #endpoint{num_received = NumSent} = CallbackData) ->
   {ok, Msg, CallbackData#endpoint{num_sent = NumSent + 1}}.

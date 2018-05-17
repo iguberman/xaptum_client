@@ -6,7 +6,7 @@
 -export([
   auth/4,
   on_receive/3,
-  receive_loop/2,
+  do_receive/1,
   on_send/2,
   on_send/3,
   on_connect/2,
@@ -84,16 +84,8 @@ on_receive(Msg, EndpointPid,
   xaptum_endpoint:send_message(EndpointPid, BacnetAck),
   {ok, CallbackData0#bacnet_pub{dds = DdsCallbackData1, udp_recv = UdpRecv + 1, udp_sent = UdpSent + 1 }}.
 
-receive_loop(TlsSocket, EndpointPid) ->
-  CallbackData0 = xaptum_endpoint:get_data(EndpointPid),
-  case ddslib:recv(TlsSocket) of
-    {ok, Msg} ->
-      {ok, CallbackData1} = ?MODULE:on_receive(<<Msg/binary>>, EndpointPid, CallbackData0),
-      xaptum_endpoint:set_data(EndpointPid, CallbackData1), %% real time updates
-      receive_loop(TlsSocket, EndpointPid);
-    {error, Error} ->
-      xaptum_endpoint:ssl_error(EndpointPid, TlsSocket, Error, CallbackData0)
-  end.
+do_receive(TlsSocket)->
+  dds_pub:do_receive(TlsSocket).
 
 on_send(Msg0, Dest, #bacnet_pub{dds = DdsCallbackData0} = CallbackData) ->
   {ok, Msg1, DdsCallbackData1} = dds_pub:on_send(Msg0, Dest, DdsCallbackData0),

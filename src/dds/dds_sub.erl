@@ -23,7 +23,7 @@
   on_send/2,
   on_send/3,
   on_receive/3,
-  receive_loop/2,
+  do_receive/1,
   on_connect/2,
   on_reconnect/2,
   on_disconnect/2
@@ -82,16 +82,8 @@ on_receive(<<?DDS_MARKER, ?REG_MSG, _Size:16, _SessionToken:?SESSION_TOKEN_SIZE/
   lager:error("Subscriber not ready to receive messages: session token should be assigned, but is ~p", [SessionToken]),
   {error, not_ready}.
 
-receive_loop(TlsSocket, EndpointPid) ->
-  CallbackData0 = xaptum_endpoint:get_data(EndpointPid),
-  case ddslib:recv(TlsSocket) of
-    {ok, Msg} ->
-      {ok, CallbackData1} = on_receive(Msg, EndpointPid, CallbackData0),
-      xaptum_endpoint:set_data(EndpointPid, CallbackData1), %% real time updates, could be batched if needed
-      receive_loop(TlsSocket, EndpointPid);
-    {error, Error} ->
-      xaptum_endpoint:ssl_error(EndpointPid, TlsSocket, Error, CallbackData0)
-  end.
+do_receive(TlsSocket)->
+  ddslib:recv(TlsSocket).
 
 %% CONTROL MSG
 on_send(Msg0, Dest, #dds{
