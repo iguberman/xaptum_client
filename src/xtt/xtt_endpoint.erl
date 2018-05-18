@@ -22,14 +22,14 @@
 
 %% xaptum_endpoint callbacks
 -export([
-  auth/4,
-  on_receive/3,
+  auth/3,
+  on_receive/2,
   do_receive/1,
   on_send/2,
   on_send/3,
-  on_connect/2,
-  on_reconnect/2,
-  on_disconnect/2
+  on_connect/1,
+  on_reconnect/1,
+  on_disconnect/1
 ]).
 
 start(Creds)->
@@ -40,25 +40,25 @@ start(Creds)->
 %%% xaptum_endpoint callbacks
 %%%===================================================================
 
-auth(XttServerHost, XttServerPort,
+auth(#hosts_config{xaptum_host = XttServerHost, xtt_port = XttServerPort},
     #tpm_creds{basename = BasenameFile, tpm_host = TpmHost, tpm_port = TpmPort, tpm_password = TpmPassword,
       client_id = ClientIdFile, server_id = ServerIdFile},
     CallbackData)->
   {ok, GroupContextInputs} = xtt_utils:group_context_inputs_tpm(BasenameFile, TpmHost, TpmPort, TpmPassword),
-  {ok, #xtt_creds{identity = Identity} = XttCreds} = do_handshake(GroupContextInputs, ClientIdFile, ServerIdFile, XttServerHost, XttServerPort),
-  {ok, XttCreds, CallbackData#endpoint{ipv6 = Identity}};
-auth(XttServerHost, XttServerPort,
+  {ok, #tls_creds{identity = Identity} = TlsCreds} = do_handshake(GroupContextInputs, ClientIdFile, ServerIdFile, XttServerHost, XttServerPort),
+  {ok, TlsCreds, CallbackData#endpoint{ipv6 = Identity}};
+auth(#hosts_config{xaptum_host = XttServerHost, xtt_port = XttServerPort},
     #file_creds{basename = BasenameFile, gpk = GpkFile, cred = CredFile, sk = SecretKeyFile,
       root_id = RootIdFile, root_pk = RootPubkeyFile, client_id = ClientIdFile, server_id = ServerIdFile},
     CallbackData)->
   {ok, GroupContextInputs} = xtt_utils:group_context_inputs(BasenameFile,
     GpkFile, CredFile,  SecretKeyFile, RootIdFile, RootPubkeyFile),
-  {ok, #xtt_creds{identity = Identity} = XttCreds} = do_handshake(
+  {ok, #tls_creds{identity = Identity} = XttCreds} = do_handshake(
     GroupContextInputs, ClientIdFile, ServerIdFile,
     XttServerHost, XttServerPort),
   {ok, XttCreds, CallbackData#endpoint{ipv6 = Identity}}.
 
-on_receive(Msg, _EndpointPid, #endpoint{num_received = NumReceived} = CallbackData)->
+on_receive(Msg, #endpoint{num_received = NumReceived} = CallbackData)->
   lager:debug("Calling ~p:on_receive", [?MODULE]),
   {ok, CallbackData#endpoint{num_received = NumReceived + 1, msg = Msg}}.
 
@@ -71,13 +71,13 @@ on_send(Msg, _Dest, #endpoint{num_received = NumSent} = CallbackData) ->
 on_send(Msg, #endpoint{num_sent = NumSent} = CallbackData) ->
   {ok, Msg, CallbackData#endpoint{num_sent = NumSent + 1}}.
 
-on_connect(_EndpointPid, CallbackData) ->
+on_connect(CallbackData) ->
   {ok, CallbackData}.
 
-on_reconnect(_EndpointPid, #endpoint{num_reconnects = Reconnects} = CallbackData) ->
+on_reconnect(#endpoint{num_reconnects = Reconnects} = CallbackData) ->
   {ok, CallbackData#endpoint{num_reconnects = Reconnects + 1}}.
 
-on_disconnect(_EndpointPid, CallbackData) ->
+on_disconnect(CallbackData) ->
   {ok, CallbackData}.
 
 
@@ -143,5 +143,5 @@ get_creds_from_xtt_context (HandshakeContext)->
 
   lager:info("LongTermPrivKeyAsn1 ~p", [PrivKeyAsn1]),
 
-  {ok, #xtt_creds{identity = Identity, pseudonym = Pseudonym, cert = CertAsn1, key = PrivKeyAsn1}}.
+  {ok, #tls_creds{identity = Identity, pseudonym = Pseudonym, cert = CertAsn1, key = PrivKeyAsn1}}.
 

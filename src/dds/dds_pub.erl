@@ -18,14 +18,14 @@
 
 %% xaptum_endpoint callbacks
 -export([
-  auth/4,
+  auth/3,
   on_send/2,
   on_send/3,
-  on_receive/3,
+  on_receive/2,
   do_receive/1,
-  on_connect/2,
-  on_reconnect/2,
-  on_disconnect/2
+  on_connect/1,
+  on_reconnect/1,
+  on_disconnect/1
   ]).
 
 
@@ -36,43 +36,44 @@ start(Creds)->
 %%% xaptum_endpoint callbacks
 %%%===================================================================
 
-auth(XttServerHost, XttServerPort, Creds, #dds{endpoint_data = EndpointData0} = CallbackData)->
-  {ok, XttCreds, EndpointData1} =
-    xtt_endpoint:auth(XttServerHost, XttServerPort, Creds, EndpointData0),
-  {ok, XttCreds, CallbackData#dds{endpoint_data = EndpointData1}}.
+auth(#hosts_config{xaptum_host = XttServerHost, xtt_port = XttServerPort},
+    Inputs, #dds{endpoint_data = EndpointData0} = CallbackData) ->
+  {ok, TlsCreds, EndpointData1} =
+    xtt_endpoint:auth(XttServerHost, XttServerPort, Inputs, EndpointData0),
+  {ok, TlsCreds, CallbackData#dds{endpoint_data = EndpointData1}}.
 
-on_connect(EndpointPid, #dds{endpoint_data = #endpoint{ipv6 = Ipv6}} = CallbackData) ->
-  send_pub_auth_request(Ipv6, EndpointPid),
+on_connect(#dds{endpoint_data = #endpoint{ipv6 = Ipv6}} = CallbackData) ->
+  send_pub_auth_request(Ipv6, self()),
   {ok, CallbackData#dds{session_token = awaiting}}.
 
-on_reconnect(EndpointPid, #dds{
+on_reconnect(#dds{
   endpoint_data = EndpointData0 = #endpoint{ipv6 = Ipv6}} = CallbackData) ->
-  send_pub_auth_request(Ipv6, EndpointPid),
-  {ok, EndpointData1} = xtt_endpoint:on_reconnect(EndpointPid, EndpointData0),
+  send_pub_auth_request(Ipv6, self()),
+  {ok, EndpointData1} = xtt_endpoint:on_reconnect(EndpointData0),
   {ok, CallbackData#dds{session_token = awaiting, endpoint_data = EndpointData1}}.
 
-on_disconnect(_EndpointPid, CallbackData) -> {ok, CallbackData}.
+on_disconnect(CallbackData) -> {ok, CallbackData}.
 
 on_receive(<<?DDS_MARKER, ?SIGNAL_MSG, Size:16, SessionToken:?SESSION_TOKEN_SIZE/bytes, Payload/binary>> = Msg,
-    EndpointPid, #dds{session_token = SessionToken,
+       #dds{session_token = SessionToken,
       endpoint_data = EndpointData0} = CallbackData) when is_binary(SessionToken)->
   Size = ?SESSION_TOKEN_SIZE + size(Payload), %% sanity check
-  {ok, EndpointData1} = xtt_endpoint:on_receive(Payload, EndpointPid, EndpointData0),
-  lager:info("Control message ~p received by ~p", [Msg, EndpointPid]),
+  {ok, EndpointData1} = xtt_endpoint:on_receive(Payload, EndpointData0),
+  lager:info("Control message ~p received by ~p", [Msg, self()]),
   {ok, CallbackData#dds{endpoint_data = EndpointData1}};
 
 on_receive(<<?DDS_MARKER, ?AUTH_RES, ?SESSION_TOKEN_SIZE:16, SessionToken:?SESSION_TOKEN_SIZE/bytes>>,
-    _EndpointPid, #dds{session_token = awaiting, endpoint_data = #endpoint{ipv6 = Ipv6}} = CallbackData)->
+          #dds{session_token = awaiting, endpoint_data = #endpoint{ipv6 = Ipv6}} = CallbackData)->
   lager:info("Device ~p Auth response received", [Ipv6]),
   {ok, CallbackData#dds{session_token = SessionToken}};
 
 on_receive(<<?DDS_MARKER, ?AUTH_RES, ?SESSION_TOKEN_SIZE:16, _SessionToken:?SESSION_TOKEN_SIZE/bytes>>,
-    _EndpointPid, #dds{session_token = _NotAwaiting, endpoint_data = #endpoint{ipv6 = Ipv6}})->
+          #dds{session_token = _NotAwaiting, endpoint_data = #endpoint{ipv6 = Ipv6}})->
   lager:error("Device ~p Auth response received out of sync", [Ipv6]),
   {error, auth_out_of_sync};
 
 on_receive(<<?DDS_MARKER, ?SIGNAL_MSG, Size:16, _DdsPayload:Size/bytes, _ActualMsg/binary>>,
-    _EndpointPid, #dds{session_token = SessionToken, endpoint_data = #endpoint{ipv6 = Ipv6}})
+          #dds{session_token = SessionToken, endpoint_data = #endpoint{ipv6 = Ipv6}})
   when SessionToken =:= undefined; SessionToken =:= awaiting ->
   lager:error("Device ~p not ready to receive control messages, session token is still ~p", [Ipv6, SessionToken]),
   {error, not_ready}.

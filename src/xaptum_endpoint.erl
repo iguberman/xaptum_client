@@ -38,23 +38,24 @@
 -define(SERVER, ?MODULE).
 
 -record(state, {
+  hosts_config,
   xaptum_host, xtt_port, tls_port,
   ipv6, pseudonym, cert, key, tls_socket,
   callback_data, callback_module,
   receiver_pid}).
 
 
--callback auth(Host :: list(), Port :: integer(), Creds :: term(), CallbackData :: any())->
+-callback auth(HostsConfig :: tuple(), Inputs :: term(), CallbackData :: any())->
   {Identity :: binary() , Cert :: binary(), Key :: binary()}.
--callback on_receive(Msg :: binary(), EndpointPid :: pid(), CallbackData :: any()) -> {ok, CallbackData :: any()}.
+-callback on_receive(Msg :: binary(), CallbackData :: any()) -> {ok, CallbackData :: any()}.
 -callback do_receive(TlsSocket :: tuple()) -> {ok, Msg :: any} | {error, Error :: any}.
 -callback on_send(Msg :: binary(), Dest :: any(), CallbackData :: any()) ->
   {ok, Msg :: binary(), CallbackData :: any()}.
 -callback on_send(Msg :: binary(), CallbackData :: any()) ->
   {ok, Msg :: binary(), CallbackData :: any()}.
--callback on_disconnect(EndpointPid :: pid(), CallbackData :: any()) -> {ok, CallbackData :: any}.
--callback on_connect(EndpointPid :: pid(), CallbackData :: any()) -> {ok, CallbackData :: any()}.
--callback on_reconnect(EndpointPid :: pid(), CallbackData :: any()) -> {ok, Callbackdata :: any()}.
+-callback on_disconnect(CallbackData :: any()) -> {ok, CallbackData :: any}.
+-callback on_connect(CallbackData :: any()) -> {ok, CallbackData :: any()}.
+-callback on_reconnect(CallbackData :: any()) -> {ok, Callbackdata :: any()}.
 
 %% TODO for when xtt is not the ony way to authenticate with xaptum and get tls cert and key
 %%-callback get_key(Creds :: tuple()) -> Key :: binary().
@@ -97,23 +98,23 @@ start_link(CallbackModule, CallbackData, Creds, XaptumHost, XttPort, TlsPort) ->
 %%% gen_server callbacks
 %%%===================================================================
 
-init([XaptumHost, XttPort, TlsPort, CallbackModule, CallbackData, Creds]) ->
+init([#hosts_config{} = HostsConfig,
+    CallbackModule, CallbackData, Creds]) ->
   gen_server:cast(self(), {auth, Creds}),
   {ok, #state{
     callback_module = CallbackModule, callback_data = CallbackData,
-    xaptum_host = XaptumHost, xtt_port = XttPort, tls_port = TlsPort}}.
+    hosts_config = HostsConfig}}.
 
 handle_call(get_data, _From, #state{callback_data = CallbackData} = State) ->
   {reply, CallbackData, State}.
 
-handle_cast({auth, Creds}, #state{
+handle_cast({auth, Inputs}, #state{
   callback_module = CallbackModule, callback_data = CallbackData0,
-  xaptum_host = XaptumHost, xtt_port = XttPort} = State) ->
-  %% TODO currently xtt is the only way, we'll have to add a level of abstraction later
-  AuthResult = CallbackModule:auth(XaptumHost, XttPort, Creds, CallbackData0),
+  hosts_config = HostsConfig} = State) ->
+  AuthResult = CallbackModule:auth(HostsConfig, Inputs, CallbackData0),
   lager:info("AuthResult: ~p", [AuthResult]),
   case AuthResult of
-    {ok, #xtt_creds{identity = Identity, pseudonym = Pseudonym, cert = Cert, key = Key}, CallbackData1} ->
+    {ok, #tls_creds{identity = Identity, pseudonym = Pseudonym, cert = Cert, key = Key}, CallbackData1} ->
         register(binary_to_atom(Identity, latin1), self()),
         gen_server:cast(self(), connect),
         {noreply, State#state{ipv6 = Identity, pseudonym = Pseudonym, cert = Cert, key = Key, callback_data = CallbackData1}};
@@ -125,7 +126,8 @@ handle_cast({auth, Creds}, #state{
 handle_cast(connect, #state{
   tls_socket = MaybeExistingTlsSocket,
   callback_module = CallbackModule, callback_data = CallbackData0,
-  xaptum_host = XaptumHost, tls_port = TlsPort, cert = Cert, key = Key} = State)
+  hosts_config = #hosts_config{xaptum_host = XaptumHost, tls_port = TlsPort},
+  cert = Cert, key = Key} = State)
     when is_binary(Cert), is_binary(Key)->
   {ok, TlsSocket} = erltls:connect(XaptumHost, TlsPort,
     [binary,
@@ -141,9 +143,9 @@ handle_cast(connect, #state{
     ],2000),
   case MaybeExistingTlsSocket of
     undefined ->
-      {ok, CallbackData1} = CallbackModule:on_connect(self(), CallbackData0);
+      {ok, CallbackData1} = CallbackModule:on_connect(CallbackData0);
     #tlssocket{} ->
-      {ok, CallbackData1} = CallbackModule:on_reconnect(self(), CallbackData0)
+      {ok, CallbackData1} = CallbackModule:on_reconnect(CallbackData0)
   end,
 
   {noreply, State#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
@@ -152,7 +154,7 @@ handle_cast({send_message, Payload, Dest}, #state{
   tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket,
   callback_module = CallbackModule, callback_data = CallbackData0} = State)
   when is_port(TcpSocket), is_pid(SslPid) ->
-  case CallbackModule:on_send(Payload, Dest, self(), CallbackData0) of
+  case CallbackModule:on_send(Payload, Dest, CallbackData0) of
     {error, retry_later} -> {noreply, CallbackData0};
     {ok, Message, CallbackData1} ->
       lager:info("Sending message ~p to ~p", [Message, Dest]),
@@ -163,7 +165,7 @@ handle_cast({send_message, Payload}, #state{
   tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket,
   callback_module = CallbackModule, callback_data = CallbackData0} = State)
     when is_port(TcpSocket), is_pid(SslPid) ->
-  case CallbackModule:on_send(Payload, self(), CallbackData0) of
+  case CallbackModule:on_send(Payload, CallbackData0) of
     {error, retry_later} -> {noreply, CallbackData0};
     {ok, Message, CallbackData1} ->
       lager:info("Sending message ~p to ~p", [Message]),
@@ -196,7 +198,7 @@ handle_cast({ssl_error, _Error}, #state{tls_socket = #tlssocket{tcp_sock = TcpSo
 
 %% Handle {active, [once|N]} mode -- TODO maybe remove as there is less control over how messages are received
 handle_info({ssl, TlsSocket, Msg}, #state{tls_socket = TlsSocket, callback_module = CallbackModule, callback_data = CallbackData0} = State) ->
-  {ok, CallbackData1} = CallbackModule:on_receive(Msg, self(), CallbackData0),
+  {ok, CallbackData1} = CallbackModule:on_receive(Msg, CallbackData0),
   {noreply, State#state{callback_data = CallbackData1}};
 handle_info({ssl_error, TlsSocket, _Error}, #state{tls_socket = TlsSocket} = State)->
   erltls:close(TlsSocket),

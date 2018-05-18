@@ -11,6 +11,7 @@
 
 
 -include("dds.hrl").
+-include("xtt_endpoint.hrl").
 
 -behavior(xaptum_endpoint).
 
@@ -19,7 +20,7 @@
 
 %% xaptum_endpoint callbacks
 -export([
-  auth/4,
+  auth/3,
   on_send/2,
   on_send/3,
   on_receive/3,
@@ -37,10 +38,28 @@ start(Creds, Queue)->
 %%% xaptum_endpoint callbacks
 %%%===================================================================
 
-auth(XttServerHost, XttServerPort, Creds, #dds{endpoint_data = EndpointData0} = CallbackData)->
-  {ok, XttCreds, EndpointData1} =
-    xtt_endpoint:auth(XttServerHost, XttServerPort, Creds, EndpointData0),
-  {ok, XttCreds, CallbackData#dds{endpoint_data = EndpointData1}}.
+auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Inputs,
+    #dds{endpoint_data = EndpointData} = CallbackData)->
+
+  #{public := Pk, secret := Sk} = enacl_ext:curve25519_keypair(),
+  PkBase64Enc = base64:encode(Pk),
+  SubnetHex = xtt_client_utils:binary_to_hex(?DEFAULT_SUBNET),
+  SubnetHexEnc = base64:encode(SubnetHex),
+  CurlCmd = "curl -s -X POST -H \"Content-Type: application/json\" -d '{ \"pub_key\": \""
+    ++ PkBase64Enc ++ "\" }' http://" ++ XcrHost ++ ":" ++ integer_to_list(XcrPort) ++ "/api/xcr/v2/ephook/" ++ SubnetHexEnc,
+  lager:info("Running ~p", [CurlCmd]),
+
+  Identity = os:cmd(CurlCmd),
+
+  {ok, CertAsn1} = xtt_erlang:xtt_x509_from_keypair(Pk, Sk, Identity),
+
+  {ok, PrivKeyAsn1} = xtt_erlang:xtt_asn1_from_private_key(Sk),
+
+  TlsCreds = #tls_creds{key = PrivKeyAsn1, cert = CertAsn1, identity = Identity},
+
+  lager:info("Resulting tls_creds: ~p", [TlsCreds]),
+
+  {ok, TlsCreds, CallbackData#dds{endpoint_data = EndpointData#endpoint{ipv6 = Identity}}}.
 
 on_connect(EndpointPid, #dds{
     queue = Queue,

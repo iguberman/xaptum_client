@@ -2,9 +2,9 @@
 %% @doc xaptum_client public API
 %% @end
 %%%-------------------------------------------------------------------
-
 -module(xaptum_client_app).
 
+-include("xtt_endpoint.hrl").
 
 %% Application behaviour and callbacks
 -behaviour(application).
@@ -81,11 +81,19 @@ init([]) ->
   {ok, XaptumHost} = application:get_env(xaptum_client, xaptum_host),
   {ok, TlsPort} = application:get_env(xaptum_client, tls_port),
   {ok, XttPort} = application:get_env(xaptum_client, xtt_port),
-  lager:info("xaptum_host ~p, xtt_port ~p, tls_port ~p", [XaptumHost, XttPort, TlsPort]),
+  {ok, XcrHost} = application:get_env(xaptum_client, xcr_host),
+  {ok, XcrPort} = application:get_env(xaptum_client, xcr_port),
+
+  HostsConfig = #hosts_config{
+    xaptum_host = XaptumHost, xtt_port = XttPort, tls_port = TlsPort,
+    xcr_host = XcrHost, xcr_port = XcrPort
+  },
+
+  lager:info("xaptum_host ~p, xtt_port ~p, tls_port ~p", [HostsConfig]),
 
   EndpointSupervisorSpec =
     #{id => xaptum_endpoint_sup,
-      start => {xaptum_endpoint_sup, start_link, [XaptumHost, XttPort, TlsPort]},
+      start => {xaptum_endpoint_sup, start_link, [HostsConfig]},
       shutdown => 10000,
       type => supervisor},
 
