@@ -41,12 +41,15 @@ start(Subnet, Queue)->
 auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
     #dds{endpoint_data = EndpointData} = CallbackData) when is_binary(Subnet)->
 
-  #{public := Pk, secret := Sk} = enacl_ext:curve25519_keypair(),
+  #{public := Pk, secret := Sk} = enacl:crypto_sign_ed25519_keypair(),
+
   PkBase64Enc = binary_to_list(base64:encode(Pk)),
+
   SubnetHex = xtt_client_utils:binary_to_hex(Subnet),
-  SubnetHexEnc = binary_to_list(base64:encode(SubnetHex)),
-  CurlCmd = "curl -s -X POST -H \"Content-Type: application/json\" -d '{ \"pub_key\": \""
-    ++ PkBase64Enc ++ "\" }' http://" ++ XcrHost ++ ":" ++ integer_to_list(XcrPort) ++ "/api/xcr/v2/ephook/" ++ SubnetHexEnc,
+
+  CurlCmd = "curl -s -X POST -H \"Content-Type: application/json\" -d '{ \"subnet\" : \"" ++ SubnetHex ++ "\", \"pub_key\" : \""
+    ++ PkBase64Enc ++ "\" }' http://" ++ XcrHost ++ ":" ++ integer_to_list(XcrPort) ++ "/api/xcr/v2/ephook",
+
   lager:info("Running ~p", [CurlCmd]),
 
   Identity = os:cmd(CurlCmd),
