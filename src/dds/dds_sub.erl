@@ -31,19 +31,19 @@
 ]).
 
 
-start(Creds, Queue)->
-  xaptum_endpoint_sup:create_endpoint(?MODULE, #dds{queue = Queue}, Creds).
+start(Subnet, Queue)->
+  xaptum_endpoint_sup:create_endpoint(?MODULE, #dds{queue = Queue}, Subnet).
 
 %%%===================================================================
 %%% xaptum_endpoint callbacks
 %%%===================================================================
 
-auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Inputs,
-    #dds{endpoint_data = EndpointData} = CallbackData)->
+auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
+    #dds{endpoint_data = EndpointData} = CallbackData) when is_binary(Subnet)->
 
   #{public := Pk, secret := Sk} = enacl_ext:curve25519_keypair(),
   PkBase64Enc = base64:encode(Pk),
-  SubnetHex = xtt_client_utils:binary_to_hex(?DEFAULT_SUBNET),
+  SubnetHex = xtt_client_utils:binary_to_hex(Subnet),
   SubnetHexEnc = base64:encode(SubnetHex),
   CurlCmd = "curl -s -X POST -H \"Content-Type: application/json\" -d '{ \"pub_key\": \""
     ++ PkBase64Enc ++ "\" }' http://" ++ XcrHost ++ ":" ++ integer_to_list(XcrPort) ++ "/api/xcr/v2/ephook/" ++ SubnetHexEnc,

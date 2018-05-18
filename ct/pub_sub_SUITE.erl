@@ -60,23 +60,20 @@ test_pub(Config)->
   NewConfig.
 
 test_sub(Config)->
-  {NewConfig, FileCreds} = init_file_creds(Config, ?SUB_CRED_DIR),
   {ok, Queue} = application:get_env(xaptum_client, dds_queue),
-  {ok, Sub} = dds_sub:start(FileCreds, Queue),
+  {ok, Sub} = dds_sub:start(?DEFAULT_SUBNET, Queue),
   {ok, _SubSessionToken} = wait_for_sub_session_token(Sub, ?SESSION_TOKEN_WAIT_TIMEOUT),
 
   test_sub_send_message(Sub, "Hello from sub!", 1),
   test_pub_send_message(Sub, "Message 1 from sub!", 2),
   test_pub_send_message(Sub, "Message 2 from sub!", 3),
-  ct:print("New config: ~p~n", [NewConfig]),
-  NewConfig.
+  Config.
 
 test_pub_sub(Config) ->
   {NewConfig, PubFileCreds} = init_file_creds(Config, ?PUB_CRED_DIR),
-  {NewConfig, SubFileCreds} = init_file_creds(Config, ?SUB_CRED_DIR),
 
   {ok, Queue} = application:get_env(xaptum_client, dds_queue),
-  {ok, Sub} = dds_sub:start(SubFileCreds, Queue),
+  {ok, Sub} = dds_sub:start(?DEFAULT_SUBNET, Queue),
   {ok, _SubSessionToken} = wait_for_sub_session_token(Sub, ?SESSION_TOKEN_WAIT_TIMEOUT),
 
   {ok, Pub} = dds_pub:start(PubFileCreds),
