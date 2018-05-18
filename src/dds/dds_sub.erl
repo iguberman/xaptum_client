@@ -45,9 +45,9 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
 
   PkBase64Enc = binary_to_list(base64:encode(Pk)),
 
-  SubnetHex = xtt_client_utils:binary_to_hex(Subnet),
+  SubnetStr = xaptum_client:ipv6_binary_to_text(Subnet),
 
-  CurlCmd = "curl -s -X POST -H \"Content-Type: application/json\" -d '{ \"subnet\" : \"" ++ SubnetHex ++ "\", \"pub_key\" : \""
+  CurlCmd = "curl -s -X POST -H \"Content-Type: application/json\" -d '{ \"subnet\" : \"" ++ SubnetStr ++ "/64\", \"pub_key\" : \""
     ++ PkBase64Enc ++ "\" }' http://" ++ XcrHost ++ ":" ++ integer_to_list(XcrPort) ++ "/api/xcr/v2/ephook",
 
   lager:info("Running ~p", [CurlCmd]),
