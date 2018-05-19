@@ -1,7 +1,7 @@
 -ifndef('__xtt_endpoint_hrl__').
 -define('__xtt_endpoint_hrl__',true).
 
--define(DEFAULT_SUBNET, <<38,7,143,128,128,0,0,0>>).
+-define(DEFAULT_SUBNET, <<38:16,7:16,143:16,128:16,128:16,0:16,0:16,0:16>>).
 
 -record(tpm_creds, {basename, tpm_host, tpm_port, tpm_password, client_id, server_id}).
 
