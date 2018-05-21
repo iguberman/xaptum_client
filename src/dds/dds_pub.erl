@@ -36,10 +36,10 @@ start(Creds)->
 %%% xaptum_endpoint callbacks
 %%%===================================================================
 
-auth(#hosts_config{xaptum_host = XttServerHost, xtt_port = XttServerPort},
+auth(#hosts_config{xaptum_host = _XttServerHost, xtt_port = _XttServerPort} = HostsConfig,
     Inputs, #dds{endpoint_data = EndpointData0} = CallbackData) ->
   {ok, TlsCreds, EndpointData1} =
-    xtt_endpoint:auth(XttServerHost, XttServerPort, Inputs, EndpointData0),
+    xtt_endpoint:auth(HostsConfig, Inputs, EndpointData0),
   {ok, TlsCreds, CallbackData#dds{endpoint_data = EndpointData1}}.
 
 on_connect(#dds{endpoint_data = #endpoint{ipv6 = Ipv6}} = CallbackData) ->
