@@ -43,13 +43,17 @@ subscriber-console: subscriber-release
 subscriber-tar: subscriber-release
 	$(REBAR) as subscriber tar
 
-testrel:
+testrel: compile
 	$(REBAR) as test release
 
-test:	compile testrel
+test: testrel
 	ct_run -dir $(BASEDIR)/ct -logdir $(BASEDIR)/ct/logs \
     	-pa $(BASEDIR)/_build/test/rel/$(APPNAME)/lib/*/ebin -erl_args \
     	-config $(BASEDIR)/_build/test/rel/$(APPNAME)/releases/$(APPVSN)/sys.config
+
+test-console: testrel
+	$(BASEDIR)/_build/test/rel/$(APPNAME)/bin/$(APPNAME) console
+
 
 dialyzer: test
 	$(REBAR) dialyzer
