@@ -38,7 +38,7 @@ NONCE="nonce-$ID"
 PK_BIN="$MEMBER_DIR/pk.bin"
 SK_BIN="$MEMBER_DIR/sk.bin"
 
-ecdaa_member_request_join $NONCE $PK_BIN $SK_BIN || exit 1
+member_request_join $NONCE $PK_BIN $SK_BIN || exit 1
 
 CRED_BIN="$MEMBER_DIR/cred.bin"
 CRED_SIG_BIN="$MEMBER_DIR/cred_sig.bin"
@@ -46,7 +46,7 @@ ISK_BIN="$GROUP_DIR/isk.bin"
 GPK_BIN="$GROUP_DIR/gpk.bin"
 
 ## GENERATE CREDENTIAL
-ecdaa_issuer_respond_to_join_request $PK_BIN $ISK_BIN $CRED_BIN $CRED_SIG_BIN $NONCE || exit 1
+issuer_respond_to_join_request $PK_BIN $ISK_BIN $CRED_BIN $CRED_SIG_BIN $NONCE || exit 1
 
 SIG_BIN="$MEMBER_DIR/sig.bin"
 MSG_BIN="$GROUP_DIR/message.bin"
@@ -55,12 +55,12 @@ SK_REV_LIST_BIN="$GROUP_DIR/sk_revocation_list.bin"
 BSN_REV_LIST_BIN="$GROUP_DIR/bsn_revocation_list.bin"
 
 ## SIGN AND VERIFY
-ecdaa_member_sign $SK_BIN $CRED_BIN $SIG_BIN $MSG_BIN $BASENAME_BIN || exit 1
+member_sign $SK_BIN $CRED_BIN $SIG_BIN $MSG_BIN $BASENAME_BIN || exit 1
 
 SK_REV_LIST_COUNT=`wc -l $SK_REV_LIST_BIN | awk '{ print $1 }'`
 BSN_REV_LIST_COUNT=`wc -l $BSN_REV_LIST_BIN | awk '{ print $1 }'`
 
-ecdaa_verify \
+verify \
 $MSG_BIN $SIG_BIN $GPK_BIN \
 $SK_REV_LIST_BIN $SK_REV_LIST_COUNT \
 $BSN_REV_LIST_BIN $BSN_REV_LIST_COUNT \

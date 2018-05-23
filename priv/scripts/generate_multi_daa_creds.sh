@@ -26,9 +26,9 @@ if [[ -f $ISK_BIN && -f $GPK_BIN ]]; then
 else
     IPK_BIN="$GROUP_DIR/ipk.bin"
     ## Create ISSUER public and private key
-    ecdaa_issuer_create_group $IPK_BIN $ISK_BIN || exit 1
+    issuer_create_group $IPK_BIN $ISK_BIN || exit 1
     ## Extract group public key
-    ecdaa_extract_group_public_key $IPK_BIN $GPK_BIN || exit 1
+    extract_group_public_key $IPK_BIN $GPK_BIN || exit 1
     rm $IPK_BIN
     echo "Successfully generated $ISK_BIN and $GPK_BIN"
 fi
