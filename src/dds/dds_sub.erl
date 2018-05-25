@@ -59,7 +59,7 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
 %% "page":{"curr":-1,"next":-1,"prev":-1}}
 
   JsonResp = os:cmd(CurlCmd),
-  DecodedResp = jsx:decode(JsonResp),
+  DecodedResp = jsx:decode(list_to_binary(JsonResp)),
   lager:info("Decoded curl resp: ~p", [DecodedResp]),
 
   #{<<"data">> := #{<<"ipv6">> := Identity}} = DecodedResp,
