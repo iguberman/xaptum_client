@@ -103,12 +103,12 @@ on_receive(<<?DDS_MARKER, ?REG_MSG, Size:16, SessionToken:?SESSION_TOKEN_SIZE/by
   {ok, CallbackData#dds{endpoint_data = EndpointData1}};
 
 on_receive(<<?DDS_MARKER, ?AUTH_RES, ?SESSION_TOKEN_SIZE:16, SessionToken:?SESSION_TOKEN_SIZE/bytes>>,
-    _EndpointPid, #dds{session_token = awaiting} = CallbackData)->
+         #dds{session_token = awaiting} = CallbackData)->
   lager:info("Subscriber auth response received"),
   {ok, CallbackData#dds{session_token = SessionToken}};
 
 on_receive(<<?DDS_MARKER, ?AUTH_RES, ?SESSION_TOKEN_SIZE:16, _RespSessionToken:?SESSION_TOKEN_SIZE/bytes>>,
-    _EndpointPid, #dds{session_token = SessionToken})
+           #dds{session_token = SessionToken})
     when is_binary(SessionToken); SessionToken =:= undefined ->
   lager:error("Subscriber auth response received out of sync: session token ~p, should be 'awaiting'", [SessionToken]),
   {error, recv_out_of_sync};
