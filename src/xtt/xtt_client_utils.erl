@@ -43,7 +43,7 @@ hex_to_bin([], Acc) ->
   list_to_binary(lists:reverse(Acc));
 hex_to_bin([X,Y|T], Acc) ->
   {ok, [V], []} = io_lib:fread("~16u", [X,Y]),
-  hexstr_to_bin(T, [V | Acc]);
+  hex_to_bin(T, [V | Acc]);
 hex_to_bin([X|T], Acc) ->
   {ok, [V], []} = io_lib:fread("~16u", lists:flatten([X,"0"])),
-  hexstr_to_bin(T, [V | Acc]).
+  hex_to_bin(T, [V | Acc]).
