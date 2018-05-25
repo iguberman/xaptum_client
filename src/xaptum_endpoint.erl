@@ -157,8 +157,8 @@ handle_cast({send_message, Payload, Dest}, #state{
   case CallbackModule:on_send(Payload, Dest, CallbackData0) of
     {error, retry_later} -> {noreply, CallbackData0};
     {ok, Message, CallbackData1} ->
-      lager:info("Sending message ~p to ~p", [Message, Dest]),
       ok = erltls:send(TlsSocket, Message),
+      lager:info("Sent message ~p to ~p", [Message, Dest]),
       {noreply, State#state{callback_data = CallbackData1}}
   end;
 handle_cast({send_message, Payload}, #state{
@@ -168,14 +168,14 @@ handle_cast({send_message, Payload}, #state{
   case CallbackModule:on_send(Payload, CallbackData0) of
     {error, retry_later} -> {noreply, CallbackData0};
     {ok, Message, CallbackData1} ->
-      lager:info("Sending message ~p to ~p", [Message]),
       ok = erltls:send(TlsSocket, Message),
+      lager:info("Sent message ~p to ~p", [Message]),
       {noreply, State#state{callback_data = CallbackData1}}
   end;
 handle_cast({send_request, Request}, #state{
   tls_socket = #tlssocket{} = TlsSocket} = State)->
-  lager:info("Sending request ~p", [Request]),
   ok = erltls:send(TlsSocket, Request),
+  lager:info("Sent request ~p", [Request]),
   {noreply, State};
 
 %% Handle {active, false} mode
