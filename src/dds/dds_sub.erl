@@ -144,6 +144,5 @@ on_send(Msg, #dds{} = CallbackData)->
 send_sub_auth_request(Ipv6, Queue, EndpointPid) when is_list(Queue)->
   send_sub_auth_request(Ipv6, list_to_binary(Queue), EndpointPid);
 send_sub_auth_request(Ipv6, Queue, EndpointPid) when is_binary(Queue)->
-  ddslib:curl_identity_to_xcr(Ipv6, "S"),
   SubInitRequest = ddslib:build_init_sub_req(Ipv6, Queue),
   xaptum_endpoint:send_request(EndpointPid, SubInitRequest).
