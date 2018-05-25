@@ -12,6 +12,7 @@
     erltls,
     xtt_erlang,
     elli,
+    jsx,
     bacnet_utils
    ]},
   {env,[]},
