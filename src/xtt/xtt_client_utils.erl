@@ -35,9 +35,10 @@ bin_to_hex(Bin)->
 
 %% From http://necrobious.blogspot.com/2008/03/binary-to-hex-string-back-to-binary-in.html
 hex_to_bin(HexBin) when is_binary(HexBin) ->
-  hex_to_bin(binary_to_string(HexBin));
+  hex_to_bin(binary_to_list(HexBin));
 hex_to_bin(HexStr) when is_list(HexStr) ->
-  hexstr_to_bin(HexStr, []).
+  hex_to_bin(HexStr, []).
+
 hex_to_bin([], Acc) ->
   list_to_binary(lists:reverse(Acc));
 hex_to_bin([X,Y|T], Acc) ->
