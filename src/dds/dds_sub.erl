@@ -52,7 +52,19 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
 
   lager:info("Running ~p", [CurlCmd]),
 
-  Identity = os:cmd(CurlCmd),
+%%  Expecting JSON in this format:
+%% {"data":[{"subnet":"2607:8f80:8000::/64",
+%%           "ipv6":"26078F80800000004F12CEEB95F13575",
+%%           "pub_key":"VkYD0g//Dje5dXV413I7jsdegT7ZHmbQmBCoe6s3Tak="}],
+%% "page":{"curr":-1,"next":-1,"prev":-1}}
+
+  JsonResp = os:cmd(CurlCmd),
+  DecodedResp = jsx:decode(JsonResp),
+  lager:info("Decoded curl resp: ~p", [DecodedResp]),
+
+  #{<<"data">> := #{<<"ipv6">> := Identity}} = DecodedResp,
+
+  lager:info("Got ipv6 ~p from response", [Identity]),
 
   {ok, CertAsn1} = xtt_erlang:xtt_x509_from_keypair(Pk, Sk, Identity),
 
