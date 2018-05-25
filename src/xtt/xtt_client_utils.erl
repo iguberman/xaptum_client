@@ -12,7 +12,8 @@
 %% API
 -export([
   generate_credentials/3,
-  binary_to_hex/1]).
+  bin_to_hex/1,
+  hex_to_bin/1]).
 -define(SCRIPT_DIR, "scripts").
 -define(CRED_SCRIPT, "generate_multi_daa_creds.sh").
 
@@ -29,7 +30,19 @@ generate_credentials(Start, End, BaseDir)->
   os:cmd(ExeCmd).
 
 
-binary_to_hex(Bin)->
+bin_to_hex(Bin)->
   lists:flatten([[io_lib:format("~2.16.0B",[X]) || <<X:8>> <= Bin ]]).
 
-
+%% From http://necrobious.blogspot.com/2008/03/binary-to-hex-string-back-to-binary-in.html
+hex_to_bin(HexBin) when is_binary(HexBin) ->
+  hex_to_bin(binary_to_string(HexBin));
+hex_to_bin(HexStr) when is_list(HexStr) ->
+  hexstr_to_bin(HexStr, []).
+hex_to_bin([], Acc) ->
+  list_to_binary(lists:reverse(Acc));
+hex_to_bin([X,Y|T], Acc) ->
+  {ok, [V], []} = io_lib:fread("~16u", [X,Y]),
+  hexstr_to_bin(T, [V | Acc]);
+hex_to_bin([X|T], Acc) ->
+  {ok, [V], []} = io_lib:fread("~16u", lists:flatten([X,"0"])),
+  hexstr_to_bin(T, [V | Acc]).

@@ -154,9 +154,9 @@ register_gpk_with_mb(GroupDir)->
   {ok, Basename} = file:read_file(BasenameFile),
   {ok, Gpk} = file:read_file(GpkFile),
   Gid = crypto:hash(sha256, Gpk),
-  GidCsvFile = filename:join([?MB_PUBLIC_KEYS_DIR, xtt_client_utils:binary_to_hex(Gid) ++ ".csv"]),
-  GpkHex = list_to_binary(xtt_client_utils:binary_to_hex(Gpk)),
-  BasenameHex = list_to_binary(xtt_client_utils:binary_to_hex(Basename)),
+  GidCsvFile = filename:join([?MB_PUBLIC_KEYS_DIR, xtt_client_utils:bin_to_hex(Gid) ++ ".csv"]),
+  GpkHex = list_to_binary(xtt_client_utils:bin_to_hex(Gpk)),
+  BasenameHex = list_to_binary(xtt_client_utils:bin_to_hex(Basename)),
   file:write_file(GidCsvFile, <<"#basename,gpk\n",BasenameHex/binary,",", GpkHex/binary>>),
   ct:print("Created file ~p with contents ~p", [GidCsvFile, file:read_file(GidCsvFile)]),
   GidCsvFile.

@@ -123,7 +123,7 @@ extract_mdxp_payload(Mdxp) ->
 curl_identity_to_xcr(Identity, Type) when Type =:= "D"; Type =:= "S" ->
   {ok, XcrHost} = application:get_env(xaptum_client, xcr_host),
   {ok, XcrPort} = application:get_env(xaptum_client, xcr_port),
-  AssignedIp = xtt_client_utils:binary_to_hex(Identity),
+  AssignedIp = xtt_client_utils:bin_to_hex(Identity),
   Cmd = "curl -X POST -H \"Content-Type: application/json\" http://" ++ XcrHost ++ ":" ++
     integer_to_list(XcrPort) ++ "/api/xcr/v2/ephook/" ++ AssignedIp ++ "/" ++ Type,
   lager:info("CMD: ~p", [Cmd]),

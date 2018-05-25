@@ -65,10 +65,9 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
 
   #{<<"data">> := [#{<<"ipv6">> := Ipv6}]} = DecodedResp,
 
-  lager:info("Got ipv6 ~p from response", [Ipv6]),
+  Identity = xtt_client_utils:bin_to_hex(Ipv6),
 
-  <<V1:16, V2:16, V3:16, V4:16, V5:16, V6:16, V7:16, V8:16, V9:16, V10:16, V11:16, V12:16, V13:16, V14:16, V15:16, V16:16>> = Ipv6,
-  Identity = <<V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15, V16>>,
+  lager:info("Got ipv6 ~p from response converted to Identity: ~p", [Ipv6, Identity]),
 
   {ok, CertAsn1} = xtt_erlang:xtt_x509_from_keypair(Pk, Sk, Identity),
 
