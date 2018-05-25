@@ -23,11 +23,11 @@
   auth/3,
   on_send/2,
   on_send/3,
-  on_receive/3,
+  on_receive/2,
   do_receive/1,
-  on_connect/2,
-  on_reconnect/2,
-  on_disconnect/2
+  on_connect/1,
+  on_reconnect/1,
+  on_disconnect/1
 ]).
 
 
@@ -80,24 +80,23 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
 
   {ok, TlsCreds, CallbackData#dds{endpoint_data = EndpointData#endpoint{ipv6 = Identity}}}.
 
-on_connect(EndpointPid, #dds{
+on_connect(#dds{
     queue = Queue,
     endpoint_data = #endpoint{ipv6 = Ipv6}} = CallbackData) ->
-  send_sub_auth_request(Ipv6, Queue, EndpointPid),
+  send_sub_auth_request(Ipv6, Queue, self()),
   {ok, CallbackData#dds{session_token = awaiting}}.
 
-on_reconnect(EndpointPid, #dds{
+on_reconnect(#dds{
     queue = Queue,
     endpoint_data = EndpointData0 = #endpoint{ipv6 = Ipv6}} = CallbackData) ->
-  send_sub_auth_request(Ipv6, Queue, EndpointPid),
-  {ok, EndpointData1} = xtt_endpoint:on_reconnect(EndpointPid, EndpointData0),
+  send_sub_auth_request(Ipv6, Queue, self()),
+  {ok, EndpointData1} = xtt_endpoint:on_reconnect(EndpointData0),
   {ok, CallbackData#dds{session_token = awaiting, endpoint_data = EndpointData1}}.
 
-on_disconnect(_EndpointPid, CallbackData) -> {ok, CallbackData}.
+on_disconnect(CallbackData) -> {ok, CallbackData}.
 
 on_receive(<<?DDS_MARKER, ?REG_MSG, Size:16, SessionToken:?SESSION_TOKEN_SIZE/bytes, Payload/binary>> = Msg,
-    EndpointPid, #dds{session_token = SessionToken,
-      endpoint_data = EndpointData0} = CallbackData) when is_binary(SessionToken)->
+      #dds{session_token = SessionToken, endpoint_data = EndpointData0} = CallbackData) when is_binary(SessionToken)->
   Size = ?SESSION_TOKEN_SIZE + size(Payload), %% sanity check
   {ok, EndpointData1} = xtt_endpoint:on_receive(Payload, EndpointPid, EndpointData0),
   lager:info("Reg msg ~p received by ~p", [Msg, EndpointPid]),
@@ -115,7 +114,7 @@ on_receive(<<?DDS_MARKER, ?AUTH_RES, ?SESSION_TOKEN_SIZE:16, _RespSessionToken:?
   {error, recv_out_of_sync};
 
 on_receive(<<?DDS_MARKER, ?REG_MSG, _Size:16, _SessionToken:?SESSION_TOKEN_SIZE/bytes, _Rest/binary>>,
-    _EndpointPid, #dds{session_token = SessionToken})
+    #dds{session_token = SessionToken})
     when SessionToken =:= undefined; SessionToken =:= awaiting ->
   lager:error("Subscriber not ready to receive messages: session token should be assigned, but is ~p", [SessionToken]),
   {error, not_ready}.
