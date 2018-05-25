@@ -98,8 +98,8 @@ on_disconnect(CallbackData) -> {ok, CallbackData}.
 on_receive(<<?DDS_MARKER, ?REG_MSG, Size:16, SessionToken:?SESSION_TOKEN_SIZE/bytes, Payload/binary>> = Msg,
       #dds{session_token = SessionToken, endpoint_data = EndpointData0} = CallbackData) when is_binary(SessionToken)->
   Size = ?SESSION_TOKEN_SIZE + size(Payload), %% sanity check
-  {ok, EndpointData1} = xtt_endpoint:on_receive(Payload, EndpointPid, EndpointData0),
-  lager:info("Reg msg ~p received by ~p", [Msg, EndpointPid]),
+  {ok, EndpointData1} = xtt_endpoint:on_receive(Payload, self(), EndpointData0),
+  lager:info("Reg msg ~p received by ~p", [Msg, self()]),
   {ok, CallbackData#dds{endpoint_data = EndpointData1}};
 
 on_receive(<<?DDS_MARKER, ?AUTH_RES, ?SESSION_TOKEN_SIZE:16, SessionToken:?SESSION_TOKEN_SIZE/bytes>>,
