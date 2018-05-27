@@ -10,7 +10,7 @@
 -author("iguberman").
 
 %% API
--export([all/0, init_per_suite/1, end_per_suite/1]).
+-export([all/0, groups/0, init_per_suite/1, end_per_suite/1]).
 -export([test_pub/1, test_sub/1, test_pub_sub/1]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -32,7 +32,16 @@
 
 -define(GID_FILE_CONFIG, gid_file).
 
-all() -> [test_pub, test_sub].
+
+all() -> [
+  {group, simple}
+].
+
+groups() -> [
+  {simple, [sequence], [test_pub, test_sub]}
+].
+
+%%all() -> [test_pub, test_sub].
 
 init_per_suite(Config)->
   CTPrivDir = ?config(priv_dir, Config),
