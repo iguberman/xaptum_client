@@ -6,26 +6,23 @@
 -define(DEVICE, device).
 -define(SUBSCRIBER, subscriber).
 
--record(dds, {endpoint_data = #endpoint{}, session_token, queue}).
+-record(dds, {endpoint_data = #endpoint{}, num_connects = 0, ready = false, sub_queues = []}).
 
 -define(DDS_MARKER, 120).
 
 -define(NOOP, 0).
 
--define(AUTH_EMP_REQ, 64).
--define(AUTH_REG_REQ, 80).
--define(AUTH_OBB_REQ, 112).
--define(AUTH_SUB_REQ, 88).
--define(AUTH_RES, 208).
+-define(SUB_REQ, 88).
+-define(READY, 208).
 
 -define(REG_MSG, 16).
--define(SIGNAL_MSG, 148).
+-define(CONTROL_MSG, 148).
 -define(OBB_MSG, 48).
 
--define(SESSION_TOKEN_SIZE, 36).
--define(GUID_SIZE, 16).
--define(AUTH_INFO_SIZE, ?GUID_SIZE).
+-define(IPV6_SIZE, 16).
 
+-define(CONNECT, 0).
+-define(DISCONNECT, 1).
 
 -endif.
 

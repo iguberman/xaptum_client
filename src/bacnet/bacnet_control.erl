@@ -7,7 +7,7 @@
 %% xaptum_endpoint callbacks
 -export([
   auth/4,
-  on_receive/3,
+  on_receive/2,
   do_receive/1,
   on_send/2,
   on_send/3,
@@ -30,40 +30,37 @@ start(Creds)->
 %%====================================
 
 auth(XttServerHost, XttServerPort, Creds, #bacnet_sub{ dds = DdsData0 } = CallbackData) ->
-  {ok, DdsData1} = dds_sub:auth(XttServerHost, XttServerPort, Creds, DdsData0),
+  {ok, DdsData1} = dds_endpoint:auth(XttServerHost, XttServerPort, Creds, DdsData0),
   {ok, CallbackData#bacnet_sub{dds = DdsData1}}.
 
 on_connect(EndpointPid, #bacnet_sub{ dds = DdsData0} = CallbackData) ->
-  {ok, DdsData1} = dds_sub:on_connect(EndpointPid, DdsData0),
+  {ok, DdsData1} = dds_endpoint:on_connect(EndpointPid, DdsData0),
   {ok, CallbackData#bacnet_sub{dds = DdsData1}}.
 
 on_reconnect(EndpointPid, #bacnet_sub{ dds = DdsData0} = CallbackData) ->
-  {ok, DdsData1} = dds_sub:on_reconnect(EndpointPid, DdsData0),
+  {ok, DdsData1} = dds_endpoint:on_reconnect(EndpointPid, DdsData0),
   {ok, CallbackData#bacnet_sub{dds = DdsData1}}.
 
 on_disconnect(EndpointPid, #bacnet_sub{ dds = DdsData0} = CallbackData) ->
-  {ok, DdsData1} = dds_sub:on_disconnect(EndpointPid, DdsData0),
+  {ok, DdsData1} = dds_endpoint:on_disconnect(EndpointPid, DdsData0),
   {ok, CallbackData#bacnet_sub{dds = DdsData1}}.
 
 
-%% AUTH RESP RECEIVE
+%% READY RESPONSE RECEIVE
 %% TODO when the session token concept goes away this initial receive should probably be on_(re)connect instead
-on_receive(Msg, EndpointPid, #bacnet_sub{dds = #dds{session_token = SessionToken} = DdsCallbackData0 } = CallbackData0)
-  when is_atom(SessionToken) ->
-  case dds_sub:on_receive(Msg, EndpointPid, DdsCallbackData0) of
-    {ok, #dds{session_token = SessionToken} = DdsCallbackData1}
-      when is_binary(SessionToken), size(SessionToken) =:= ?SESSION_TOKEN_SIZE ->
+on_receive(Msg, #bacnet_sub{dds = #dds{ready = Whatever} = DdsCallbackData0 } = CallbackData0) ->
+  case dds_endpoint:on_receive(Msg, DdsCallbackData0) of
+    {ok, #dds{ready = true} = DdsCallbackData1} ->
       CallbackData1 = CallbackData0#bacnet_sub{dds = DdsCallbackData1},
-      {ok, Pid} = spawn_link(?MODULE, poll_loop, [write_poll, EndpointPid]),
+      {ok, Pid} = spawn_link(?MODULE, poll_loop, [write_poll, self()]),
       {ok, CallbackData1#bacnet_sub{poll_pid = Pid}};
     {error, Error} -> {error, Error}
   end;
-%% REG MSG RECEIVE
-on_receive(Msg, EndpointPid, #bacnet_sub{dict = Dict, poll_reqs = PollReqs, dds = #dds{session_token = SessionToken} = DdsCallbackData0})
-  when is_binary(SessionToken), size(SessionToken) =:= ?SESSION_TOKEN_SIZE ->
+%% MSG RECEIVE
+on_receive(Msg, #bacnet_sub{dict = Dict, poll_reqs = PollReqs, dds = #dds{ready = true} = DdsCallbackData0}) ->
   %% Extract payload out of DDS message into Mdxp
   {ok, #dds{endpoint_data = #endpoint{msg = Mdxp}} = DdsCallbackData1} =
-    dds_pub:on_receive(Msg, EndpointPid, DdsCallbackData0),
+    dds_endpoint:on_receive(Msg, DdsCallbackData0),
   %% Decode the original msg
   OriginalMsg = base64:decode(ddslib:extract_mdxp_payload(Mdxp)),
   case OriginalMsg of
@@ -77,16 +74,16 @@ on_receive(Msg, EndpointPid, #bacnet_sub{dict = Dict, poll_reqs = PollReqs, dds 
   end.
 
 do_receive(TlsSocket)->
-  dds_sub:do_receive(TlsSocket).
+  dds_endpoint:do_receive(TlsSocket).
 
 %% CONTROL MESSAGE
 on_send(Msg0, Dest, #bacnet_pub{dds = DdsCallbackData0} = CallbackData) ->
-  {ok, Msg1, DdsCallbackData1} = dds_sub:on_send(Msg0, Dest, DdsCallbackData0),
+  {ok, Msg1, DdsCallbackData1} = dds_endpoint:on_send(Msg0, Dest, DdsCallbackData0),
   {ok, Msg1, CallbackData#bacnet_pub{dds = DdsCallbackData1}}.
 
 %% REGULAR MESSAGE
 on_send(Msg0, #bacnet_pub{dds = DdsCallbackData0} = CallbackData) ->
-  {ok, Msg1, DdsCallbackData1} = dds_sub:on_send(Msg0, DdsCallbackData0),
+  {ok, Msg1, DdsCallbackData1} = dds_endpoint:on_send(Msg0, DdsCallbackData0),
   {ok, Msg1, CallbackData#bacnet_pub{dds = DdsCallbackData1}}.
 
 %%====================================

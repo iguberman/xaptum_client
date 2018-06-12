@@ -20,19 +20,19 @@
 -module(ddslib).
 
 -export([
-
-	 build_reg_message/2,
-	 build_control_message/2,
-	 build_init_pub_req/1,
-	 build_init_sub_req/2,
-	 recv/1,
-	 extract_mdxp_payload/1,
-   curl_identity_to_xcr/2
+  connect_event/3,
+  disconnect_event/3,
+  subscribe_request/1,
+  control_request/2,
+  reg_msg_request/1,
+  recv/1,
+  extract_mdxp_payload/1,
+  curl_identity_to_xcr/2
 ]).
 
 -include("dds.hrl").
 
--define(TOKEN, <<"abcdefghijklmnopqrstuvwzyz1234567890ABCD">>).
+
 -define(TYPE, <<0>>).
 -define(TOTAL, 10).
 -define(DELAY, 200).
@@ -59,29 +59,35 @@
 -define(LOG_PROC, test_log_proc).
 -define(LOG_SQL, <<"insert into test_log(dev_id, msg_id, message, type, ts) values (?,?,?,?,?)">>).
 
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% DDS Protocol Implementation
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-build_init_pub_req(Guid) ->
-    build_req(Guid, ?AUTH_EMP_REQ, <<>>). 
 
-build_init_sub_req(Guid, Queue) ->
-    build_req(Guid, ?AUTH_SUB_REQ, Queue).
+connect_event(Ipv6, RemoteIp, RemotePort)->
+  event_packet(?CONNECT, Ipv6, RemoteIp, RemotePort).
 
-build_reg_message(SessionToken, Message) when is_list(Message) ->
-  build_reg_message(SessionToken, list_to_binary(Message));
-build_reg_message(SessionToken, Message) when is_binary(Message) ->
-    build_message(SessionToken, ?REG_MSG, Message).
+disconnect_event(Ipv6, RemoteIp, RemotePort)->
+  event_packet(?DISCONNECT, Ipv6, RemoteIp, RemotePort).
 
+control_request(Message, DestIpv6) when is_binary(Message)->
+  Payload = <<DestIpv6/binary, Message/binary>>,
+  dds_payload(Payload, ?CONTROL_MSG).
 
-build_control_message(SessionToken, Message) when is_list(Message) ->
-  build_control_message(SessionToken, list_to_binary(Message));
-build_control_message(SessionToken, Message) when is_binary(Message) ->
-    build_message(SessionToken, ?SIGNAL_MSG, Message).
+reg_msg_request(Message) when is_binary(Message) ->
+  dds_payload(Message, ?REG_MSG).
+
+subscribe_request(Queue)->
+  Payload = <<Queue/binary>>,
+  dds_payload(Payload, ?SUB_REQ).
+
+event_packet(EventType, Ipv6, RemoteIp, RemotePort) ->
+  <<Ipv6:16/binary, RemoteIp:16/binary, RemotePort:16, EventType:16>>.
+
+dds_payload(Payload, Type) when is_integer(Type), is_binary(Payload) ->
+  Size = size(Payload),
+  <<?DDS_MARKER, Type, Size:16, Payload/binary>>.
 
 recv(Client) ->
   case erltls:recv(Client, 4, 2000) of
@@ -95,26 +101,6 @@ recv(Client) ->
     {error, Error} -> lager:error("Error receiving dds header", [Error]),
       {error, Error}
   end.
-
-    
-%%=============================================================
-%% Private functions
-%%=============================================================
-build_req(Guid, Type, ReqPayload) ->
-    Size = 16 + byte_size(ReqPayload),
-    FixedHeader = <<?DDS_MARKER:8, Type:8, Size:16>>,
-    VariableHeader = Guid,
-    Payload = ReqPayload,
-    Packet = <<FixedHeader/binary, VariableHeader/binary, Payload/binary>>,
-    Packet.
-
-build_message(SessionToken, MsgType, Message) ->
-    Size = 36 + byte_size(Message),
-    FixedHeader = <<?DDS_MARKER:8, MsgType:8, Size:16>>,
-    VariableHeader = SessionToken,
-    Payload = Message,
-    Packet = <<FixedHeader/binary, VariableHeader/binary, Payload/binary>>,
-    Packet.
 
 extract_mdxp_payload(Mdxp) ->
     {match, [Msg]} = re:run(Mdxp, ".*originalPayload\"\s*:\s*\"(.*)\".*$", [{capture, [1], list}, ungreedy]),

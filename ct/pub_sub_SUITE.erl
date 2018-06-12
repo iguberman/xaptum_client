@@ -20,7 +20,7 @@
 -include_lib("xaptum_client/include/xtt_endpoint.hrl").
 -include_lib("xaptum_client/include/dds.hrl").
 
--define(SESSION_TOKEN_WAIT_TIMEOUT, 20000).
+-define(READY_WAIT_TIMEOUT, 20000).
 -define(MESSAGE_LATENCY, 2000).
 
 -define(MB_PUBLIC_KEYS_DIR, "/opt/xaptum/public/group_public_keys").
@@ -60,7 +60,7 @@ end_per_suite(Config) ->
 test_pub(Config)->
   {NewConfig, FileCreds} = init_file_creds(Config, ?PUB_CRED_DIR),
   {ok, Pub} = dds_pub:start(FileCreds),
-  {ok, _PubSessionToken} = wait_for_pub_session_token(Pub, ?SESSION_TOKEN_WAIT_TIMEOUT),
+  {ok, _PubSessionToken} = wait_for_endpoint_ready(Pub, ?READY_WAIT_TIMEOUT),
 
   test_pub_send_message(Pub, "Hello from pub!", 1),
   test_pub_send_message(Pub, "Message 1 from pub!", 2),
@@ -69,9 +69,9 @@ test_pub(Config)->
   NewConfig.
 
 test_sub(Config)->
-  {ok, Queue} = application:get_env(xaptum_client, dds_queue),
+  {ok, Queue} = application:get_env(xaptum_client, dds_queues),
   {ok, Sub} = dds_sub:start(?DEFAULT_SUBNET, Queue),
-  {ok, _SubSessionToken} = wait_for_sub_session_token(Sub, ?SESSION_TOKEN_WAIT_TIMEOUT),
+  {ok, _SubSessionToken} = wait_for_endpoint_ready(Sub, ?READY_WAIT_TIMEOUT),
 
   test_sub_send_message(Sub, "Hello from sub!", 1),
   test_pub_send_message(Sub, "Message 1 from sub!", 2),
@@ -81,12 +81,12 @@ test_sub(Config)->
 test_pub_sub(Config) ->
   {NewConfig, PubFileCreds} = init_file_creds(Config, ?PUB_CRED_DIR),
 
-  {ok, Queue} = application:get_env(xaptum_client, dds_queue),
-  {ok, Sub} = dds_sub:start(?DEFAULT_SUBNET, Queue),
-  {ok, _SubSessionToken} = wait_for_sub_session_token(Sub, ?SESSION_TOKEN_WAIT_TIMEOUT),
+  {ok, Queues} = application:get_env(xaptum_client, dds_queues),
+  {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues),
+  {ok, _SubSessionToken} = wait_for_endpoint_ready(Sub, ?READY_WAIT_TIMEOUT),
 
   {ok, Pub} = dds_pub:start(PubFileCreds),
-  {ok, _PubSessionToken} = wait_for_pub_session_token(Pub, ?SESSION_TOKEN_WAIT_TIMEOUT),
+  {ok, _PubSessionToken} = wait_for_endpoint_ready(Pub, ?READY_WAIT_TIMEOUT),
 
   test_pub_send_message(Pub, "Hello from pub!", 1),
   test_sub_recv_message(Sub, 1),
@@ -102,25 +102,18 @@ test_pub_sub(Config) ->
 %%% Test utils
 %%%===================================================================
 
-wait_for_pub_session_token(Pub, Timeout)->
-  wait_for_session_token(Pub, undefined,
-    fun(Data)->#dds{session_token = SessionToken} = Data, SessionToken end,
-    Timeout).
+wait_for_endpoint_ready(Pub, Timeout)->
+  wait_for_endpoint_ready(Pub, false, Timeout).
 
-wait_for_sub_session_token(Sub, Timeout)->
-  wait_for_session_token(Sub, undefined,
-    fun(Data)-> #dds{session_token = SessionToken} = Data, SessionToken end,
-    Timeout).
-
-wait_for_session_token(_EndpointPid, _SessionToken, _STFun, Timeout) when Timeout =< 0->
+wait_for_endpoint_ready(_EndpointPid, false, Timeout) when Timeout =< 0->
   {error, timeout};
-wait_for_session_token(EndpointPid, SessionToken, STFun, Timeout) when SessionToken =:= undefined; SessionToken =:= awaiting->
+wait_for_endpoint_ready(EndpointPid, false, Timeout) ->
   timer:sleep(100),
-  Data = xaptum_endpoint:get_data(EndpointPid),
-  wait_for_session_token(EndpointPid, STFun(Data), STFun, Timeout - 100);
-wait_for_session_token(_EndpointPid, SessionToken, _STFun, Timeout) when is_binary(SessionToken)->
-  lager:info("Got session token ~p after ~p ms", [SessionToken, Timeout]),
-  {ok, SessionToken}.
+  #dds{ready = Ready} = xaptum_endpoint:get_data(EndpointPid),
+  wait_for_endpoint_ready(EndpointPid, Ready, Timeout - 100);
+wait_for_endpoint_ready(_EndpointPid, true, Timeout) ->
+  lager:info("Ready ~p after ~p ms", [?READY_WAIT_TIMEOUT - Timeout]),
+  {ok, true}.
 
 test_pub_send_message(PubPid, Message, SendSequence)->
   xaptum_endpoint:send_message(PubPid, Message),

@@ -15,6 +15,9 @@
 
 -behavior(xaptum_endpoint).
 
+-define(XCR_USERNAME_ENV, "XCR_USERNAME").
+-define(XCR_TOKEN_ENV, "XCR_TOKEN").
+
 %% API
 -export([start/2]).
 
@@ -31,15 +34,15 @@
 ]).
 
 
-start(Subnet, Queue)->
-  xaptum_endpoint_sup:create_endpoint(?MODULE, #dds{queue = Queue}, Subnet).
+start(Subnet, Queues)->
+  xaptum_endpoint_sup:create_endpoint(?MODULE, #dds{sub_queues = Queues}, Subnet).
 
 %%%===================================================================
 %%% xaptum_endpoint callbacks
 %%%===================================================================
 
 auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
-    #dds{endpoint_data = EndpointData} = CallbackData) when is_binary(Subnet)->
+    #dds{sub_queues = [], endpoint_data = EndpointData} = CallbackData) when is_binary(Subnet)->
 
   #{public := Pk, secret := Sk} = enacl:crypto_sign_ed25519_keypair(),
 
@@ -47,7 +50,21 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
 
   SubnetStr = xaptum_client:ipv6_binary_to_text(Subnet),
 
-  CurlCmd = "curl -s -X POST -H \"Content-Type: application/json\" -d '{ \"subnet\" : \"" ++ SubnetStr ++ "/64\", \"pub_key\" : \""
+  XcrUsername = os:getenv(?XCR_USERNAME_ENV),
+  XcrToken = os:getenv(?XCR_TOKEN_ENV),
+
+  GetTokenCmd = "curl -s -X POST -H \"Content-Type: application/json\" -d '{ \"username\": \"" ++
+    XcrUsername ++ "\", \"token\": \"" ++ XcrToken ++ "\" }' http://"
+    ++ XcrHost ++ ":" ++ integer_to_list(XcrPort) ++ "/api/xcr/v2/xauth",
+
+  lager:info("Executing get token cmd: ~n~p", [GetTokenCmd]),
+
+  Token = os:cmd(GetTokenCmd),
+
+  lager:info("Got Token from XCR: ~p", [Token]),
+
+  CurlCmd = "curl -s -X POST -H \"Content-Type: application/json Authorization: Bearer \"" ++ Token
+    ++ "\" -d '{ \"subnet\" : \"" ++ SubnetStr ++ "/64\", \"pub_key\" : \""
     ++ PkBase64Enc ++ "\" }' http://" ++ XcrHost ++ ":" ++ integer_to_list(XcrPort) ++ "/api/xcr/v2/ephook",
 
   lager:info("Running ~p", [CurlCmd]),
@@ -83,9 +100,19 @@ on_connect(#dds{
     queue = Queue,
     endpoint_data = #endpoint{ipv6 = Ipv6}} = CallbackData) ->
   send_sub_auth_request(Ipv6, Queue, self()),
-  {ok, CallbackData#dds{session_token = awaiting}}.
+  {ok, CallbackData#dds{ready = false, endpoint_data = }}.
 
 on_reconnect(#dds{
+  ready = false
+  num_connects = Num,
+  sub_queues = Queues,
+  endpoint_data = EndpointData0 = #endpoint{ipv6 = Ipv6}} = CallbackData) ->
+  send_sub_auth_request(Ipv6, Queue, self()),
+  {ok, EndpointData1} = xtt_endpoint:on_reconnect(EndpointData0),
+  dds_sub:on_connect(CallbackData#dds{endpoint_data = EndpointData1});
+
+on_reconnect(#dds{
+    ready = false,
     queue = Queue,
     endpoint_data = EndpointData0 = #endpoint{ipv6 = Ipv6}} = CallbackData) ->
   send_sub_auth_request(Ipv6, Queue, self()),
@@ -94,13 +121,15 @@ on_reconnect(#dds{
 
 on_disconnect(CallbackData) -> {ok, CallbackData}.
 
-on_receive(<<?DDS_MARKER, ?REG_MSG, Size:16, SessionToken:?SESSION_TOKEN_SIZE/bytes, Payload/binary>> = Msg,
-      #dds{session_token = SessionToken, endpoint_data = EndpointData0} = CallbackData) when is_binary(SessionToken)->
-  Size = ?SESSION_TOKEN_SIZE + size(Payload), %% sanity check
+on_receive(<<?DDS_MARKER, ?REG_MSG, Size:16, Payload/binary>> = Msg,
+      #dds{ready = true, endpoint_data = EndpointData0} = CallbackData) ->
+  Size = size(Payload), %% sanity check
   {ok, EndpointData1} = xtt_endpoint:on_receive(Payload, self(), EndpointData0),
   lager:info("Reg msg ~p received by ~p", [Msg, self()]),
   {ok, CallbackData#dds{endpoint_data = EndpointData1}};
-
+on_receive(<<?DDS_MARKER, ?REG_MSG, Size:16, Payload/binary>> = Msg,
+    #dds{ready = false, endpoint_data = EndpointData0} = CallbackData) ->
+  lager:error("Reg msg ~p received by ~p before it is ready!", [Msg, self()]);
 on_receive(<<?DDS_MARKER, ?AUTH_RES, ?SESSION_TOKEN_SIZE:16, SessionToken:?SESSION_TOKEN_SIZE/bytes>>,
          #dds{session_token = awaiting} = CallbackData)->
   lager:info("Subscriber auth response received"),

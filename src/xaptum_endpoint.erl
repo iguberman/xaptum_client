@@ -24,6 +24,8 @@
   receive_loop/3,
   get_data/1,
   ssl_error/2,
+  connect/1,
+  reconnect/1,
   disconnect/1
   ]).
 
@@ -87,6 +89,12 @@ get_data(EndpointPid)->
 ssl_error(EndpointPid, Error) ->
   gen_server:cast(EndpointPid, {ssl_error, Error}).
 
+connect(EndpointPid)->
+  gen_server:cast(EndpointPid, maybe_connect).
+
+reconnect(EndpointPid)->
+  gen_server:cast(EndpointPid, maybe_reconnect).
+
 disconnect(EndpointPid) ->
   gen_server:stop(EndpointPid).
 
@@ -99,8 +107,8 @@ start_link(#hosts_config{} = HostsConfig, CallbackModule, CallbackData, Creds) -
 %%%===================================================================
 
 init([#hosts_config{} = HostsConfig,
-    CallbackModule, CallbackData, Creds]) ->
-  gen_server:cast(self(), {auth, Creds}),
+    CallbackModule, CallbackData, AuthInputs]) ->
+  gen_server:cast(self(), {auth, AuthInputs}),
   {ok, #state{
     callback_module = CallbackModule, callback_data = CallbackData,
     hosts_config = HostsConfig}}.
@@ -123,28 +131,27 @@ handle_cast({auth, Inputs}, #state{
       {stop, failed_auth, State}
   end;
 
-handle_cast(connect, #state{
+%% Create new tls connection if there isn't one
+handle_cast(maybe_connect, #state{ tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = _ExistingTlsSocket,
+  callback_module = CallbackModule, callback_data = CallbackData0} = State) when is_port(TcpSocket), is_pid(SslPid) ->
+  {ok, CallbackData1} = CallbackModule:on_connect(CallbackData0),
+  {noreply, State#state{callback_data = CallbackData1}};
+handle_cast(maybe_connect, #state{ tls_socket = undefined,
+  callback_module = CallbackModule, callback_data = CallbackData0} = State)->
+  {ok, TlsSocket} = do_tls_connect(State),
+  {ok, CallbackData1} = CallbackModule:on_connect(CallbackData0),
+  {noreply, State#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
+
+%% Connect if not connected, force reconnect if it is
+handle_cast(maybe_reconnect, #state{
   tls_socket = MaybeExistingTlsSocket,
-  callback_module = CallbackModule, callback_data = CallbackData0,
-  hosts_config = #hosts_config{xaptum_host = XaptumHost, tls_port = TlsPort},
-  cert = Cert, key = Key} = State)
-    when is_binary(Cert), is_binary(Key)->
-  {ok, TlsSocket} = erltls:connect(XaptumHost, TlsPort,
-    [binary,
-      {active, false},
-      {reuseaddr, true},
-      {packet, 0},
-      {keepalive, true},
-      {nodelay, true},
-      {verify, verify_none},
-      {fail_if_no_peer_cert, false},
-      {cert, Cert},
-      {key, Key}
-    ],2000),
+  callback_module = CallbackModule, callback_data = CallbackData0} = State) ->
+  {ok, TlsSocket} = do_tls_connect(State),
   case MaybeExistingTlsSocket of
-    undefined ->
+    undefined -> %% this WAS NOT a REconnect
       {ok, CallbackData1} = CallbackModule:on_connect(CallbackData0);
-    #tlssocket{} ->
+    #tlssocket{} -> %% yes, this WAS a REconnect
+      erltls:close(MaybeExistingTlsSocket),
       {ok, CallbackData1} = CallbackModule:on_reconnect(CallbackData0)
   end,
 
@@ -166,7 +173,11 @@ handle_cast({send_message, Payload}, #state{
   callback_module = CallbackModule, callback_data = CallbackData0} = State)
     when is_port(TcpSocket), is_pid(SslPid) ->
   case CallbackModule:on_send(Payload, CallbackData0) of
-    {error, retry_later} -> {noreply, CallbackData0};
+    {error, retry_later} ->
+      timer:sleep(100),
+      gen_server:cast(self(), maybe_connect),
+      gen_server:cast(self(), {send_message, Payload}),
+      {noreply, CallbackData0};
     {ok, Message, CallbackData1} ->
       ok = erltls:send(TlsSocket, Message),
       lager:info("Sent message ~p to ~p", [Message]),
@@ -219,6 +230,23 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+do_tls_connect(#state{
+  hosts_config = #hosts_config{xaptum_host = XaptumHost, tls_port = TlsPort},
+  cert = Cert, key = Key}) when is_binary(Cert), is_binary(Key) ->
+  erltls:connect(XaptumHost, TlsPort,
+    [binary,
+      {active, false},
+      {reuseaddr, true},
+      {packet, 0},
+      {keepalive, true},
+      {nodelay, true},
+      {verify, verify_none},
+      {fail_if_no_peer_cert, false},
+      {cert, Cert},
+      {key, Key}
+    ],2000).
+
 
 receive_loop(TlsSocket, EndpointPid, CallbackModule) ->
   case CallbackModule:do_receive(TlsSocket) of

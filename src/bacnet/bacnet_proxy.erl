@@ -32,31 +32,28 @@ start(Creds)->
 %%====================================
 
 auth(XttServerHost, XttServerPort, Creds, #bacnet_pub{ dds = DdsData0 } = CallbackData) ->
-  {ok, DdsData1} = dds_pub:auth(XttServerHost, XttServerPort, Creds, DdsData0),
+  {ok, DdsData1} = dds_endpoint:auth(XttServerHost, XttServerPort, Creds, DdsData0),
   {ok, CallbackData#bacnet_pub{dds = DdsData1}}.
 
 on_connect(EndpointPid, #bacnet_pub{ dds = DdsData0} = CallbackData) ->
-  {ok, DdsData1} = dds_pub:on_connect(EndpointPid, DdsData0),
+  {ok, DdsData1} = dds_endpoint:on_connect(EndpointPid, DdsData0),
   {ok, CallbackData#bacnet_pub{dds = DdsData1}}.
 
 on_reconnect(EndpointPid, #bacnet_pub{ dds = DdsData0} = CallbackData) ->
-  {ok, DdsData1} = dds_pub:on_reconnect(EndpointPid, DdsData0),
+  {ok, DdsData1} = dds_endpoint:on_reconnect(EndpointPid, DdsData0),
   {ok, CallbackData#bacnet_pub{dds = DdsData1}}.
 
 on_disconnect(EndpointPid, #bacnet_pub{ dds = DdsData0} = CallbackData) ->
-  {ok, DdsData1} = dds_pub:on_disconnect(EndpointPid, DdsData0),
+  {ok, DdsData1} = dds_endpoint:on_disconnect(EndpointPid, DdsData0),
   {ok, CallbackData#bacnet_pub{dds = DdsData1}}.
 
 
-%% AUTH RESP RECEIVE
-%% TODO when the session token concept goes away this initial receive should probably be on_(re)connect instead
+%% READY RESPONSE RECEIVE
 on_receive(Msg, EndpointPid, #bacnet_pub{
   udp_socket = undefined,
-  dds = #dds{session_token = SessionToken} = DdsCallbackData0 } = CallbackData0)
-  when is_atom(SessionToken) ->
-  case dds_pub:on_receive(Msg, EndpointPid, DdsCallbackData0) of
-    {ok, #dds{session_token = SessionToken} = DdsCallbackData1}
-      when is_binary(SessionToken), size(SessionToken) =:= ?SESSION_TOKEN_SIZE ->
+  dds = #dds{ready = false} = DdsCallbackData0 } = CallbackData0) ->
+  case dds_endpoint:on_receive(Msg, EndpointPid, DdsCallbackData0) of
+    {ok, #dds{ready = true} = DdsCallbackData1} ->
       CallbackData1 = CallbackData0#bacnet_pub{dds = DdsCallbackData1},
       {ok, Pid} = spawn_link(?MODULE, heartbeat_loop, [CallbackData1]),
       {ok, UdpSocket} = gen_udp:open(8780, [binary, {active, false}]),
@@ -66,11 +63,11 @@ on_receive(Msg, EndpointPid, #bacnet_pub{
 %% CONTROL MESSAGE RECEIVE
 on_receive(Msg, EndpointPid,
     #bacnet_pub{udp_socket = Socket, udp_recv = UdpRecv, udp_sent = UdpSent,
-                dds = #dds{session_token = SessionToken,
+                dds = #dds{ready = true,
                            endpoint_data = #endpoint{msg = Bin} } = DdsCallbackData0 } = CallbackData0)
-      when is_port(Socket), is_binary(SessionToken), size(SessionToken) =:= ?SESSION_TOKEN_SIZE ->
+      when is_port(Socket) ->
   {ok, #dds{endpoint_data = #endpoint{msg = BacnetRequest}} = DdsCallbackData1} =
-    dds_pub:on_receive(Msg, EndpointPid, DdsCallbackData0),
+    dds_endpoint:on_receive(Msg, EndpointPid, DdsCallbackData0),
   %% Send socket to 47808
   ok = gen_udp:send(Socket, {127,0,0,1}, 47808, BacnetRequest),
   %% Read the response from bacserv
@@ -80,14 +77,14 @@ on_receive(Msg, EndpointPid,
   {ok, CallbackData0#bacnet_pub{dds = DdsCallbackData1, udp_recv = UdpRecv + 1, udp_sent = UdpSent + 1 }}.
 
 do_receive(TlsSocket)->
-  dds_pub:do_receive(TlsSocket).
+  dds_endpoint:do_receive(TlsSocket).
 
 on_send(Msg0, Dest, #bacnet_pub{dds = DdsCallbackData0} = CallbackData) ->
-  {ok, Msg1, DdsCallbackData1} = dds_pub:on_send(Msg0, Dest, DdsCallbackData0),
+  {ok, Msg1, DdsCallbackData1} = dds_endpoint:on_send(Msg0, Dest, DdsCallbackData0),
   {ok, Msg1, CallbackData#bacnet_pub{dds = DdsCallbackData1}}.
 
 on_send(Msg0, #bacnet_pub{dds = DdsCallbackData0} = CallbackData) ->
-  {ok, Msg1, DdsCallbackData1} = dds_pub:on_send(Msg0, DdsCallbackData0),
+  {ok, Msg1, DdsCallbackData1} = dds_endpoint:on_send(Msg0, DdsCallbackData0),
   {ok, Msg1, CallbackData#bacnet_pub{dds = DdsCallbackData1}}.
 
 

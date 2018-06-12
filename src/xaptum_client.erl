@@ -51,7 +51,7 @@ start_device() ->
 start_subscriber() ->
     {ok, App} = xaptum_client:get_application(),
     {ok, IpFile} = xaptum_client:get_env(App, ipv6_file),
-    {ok, Queue} = xaptum_client:get_env(App, dds_queue),
+    {ok, Queues} = xaptum_client:get_env(App, dds_queues),
 
     SubIp = read_ipv6_file(IpFile),
     start_subscriber(SubIp, Queue).
