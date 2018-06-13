@@ -69,8 +69,8 @@ test_pub(Config)->
   NewConfig.
 
 test_sub(Config)->
-  {ok, Queue} = application:get_env(xaptum_client, dds_queues),
-  {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queue),
+  {ok, Queues} = application:get_env(xaptum_client, dds_queues),
+  {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues),
   {ok, _SubSessionToken} = wait_for_endpoint_ready(Sub, ?READY_WAIT_TIMEOUT),
 
   test_sub_send_message(Sub, "Hello from sub!", 1),

@@ -54,7 +54,7 @@ start_subscriber() ->
     {ok, Queues} = xaptum_client:get_env(App, dds_queues),
 
     SubIp = read_ipv6_file(IpFile),
-    start_subscriber(SubIp, Queue).
+    start_subscriber(SubIp, Queues).
 
 start_device(DeviceIp) when is_list(DeviceIp) ->
     DIP = ipv6_to_binary(DeviceIp),
