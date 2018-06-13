@@ -59,7 +59,7 @@ end_per_suite(Config) ->
 
 test_pub(Config)->
   {NewConfig, FileCreds} = init_file_creds(Config, ?PUB_CRED_DIR),
-  {ok, Pub} = dds_pub:start(FileCreds),
+  {ok, Pub} = dds_endpoint:start(FileCreds),
   {ok, _PubSessionToken} = wait_for_endpoint_ready(Pub, ?READY_WAIT_TIMEOUT),
 
   test_pub_send_message(Pub, "Hello from pub!", 1),
@@ -70,7 +70,7 @@ test_pub(Config)->
 
 test_sub(Config)->
   {ok, Queue} = application:get_env(xaptum_client, dds_queues),
-  {ok, Sub} = dds_sub:start(?DEFAULT_SUBNET, Queue),
+  {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queue),
   {ok, _SubSessionToken} = wait_for_endpoint_ready(Sub, ?READY_WAIT_TIMEOUT),
 
   test_sub_send_message(Sub, "Hello from sub!", 1),
@@ -85,7 +85,7 @@ test_pub_sub(Config) ->
   {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues),
   {ok, _SubSessionToken} = wait_for_endpoint_ready(Sub, ?READY_WAIT_TIMEOUT),
 
-  {ok, Pub} = dds_pub:start(PubFileCreds),
+  {ok, Pub} = dds_endpoint:start(PubFileCreds),
   {ok, _PubSessionToken} = wait_for_endpoint_ready(Pub, ?READY_WAIT_TIMEOUT),
 
   test_pub_send_message(Pub, "Hello from pub!", 1),

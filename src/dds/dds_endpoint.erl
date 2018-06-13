@@ -18,7 +18,7 @@
 
 
 %% API
--export([start/1]).
+-export([start/1, start/2]).
 
 %% xaptum_endpoint callbacks
 -export([
