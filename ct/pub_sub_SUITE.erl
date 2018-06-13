@@ -151,12 +151,16 @@ init_file_creds(Config, MemberDir)->
     filename:join([PrivDir, MemberDir]))}.
 
 register_gpk_with_mb(GroupDir)->
+  ct:print("register_gpk_with_mb(~p)~n", [GroupDir]),
   BasenameFile = filename:join([GroupDir, ?BASENAME_FILE]),
   GpkFile = filename:join([GroupDir, ?DAA_GPK_FILE]),
+  ct:print("Reading file ~p~n", [BasenameFile]),
   {ok, Basename} = file:read_file(BasenameFile),
+  ct:print("Reading file ~p~n", [GpkFile]),
   {ok, Gpk} = file:read_file(GpkFile),
   Gid = crypto:hash(sha256, Gpk),
   GidCsvFile = filename:join([?MB_PUBLIC_KEYS_DIR, xtt_client_utils:bin_to_hex(Gid) ++ ".csv"]),
+  ct:print("Writing GidCsvFile: ~p~n", [GidCsvFile]),
   GpkHex = list_to_binary(xtt_client_utils:bin_to_hex(Gpk)),
   BasenameHex = list_to_binary(xtt_client_utils:bin_to_hex(Basename)),
   file:write_file(GidCsvFile, <<"#basename,gpk\n",BasenameHex/binary,",", GpkHex/binary>>),
