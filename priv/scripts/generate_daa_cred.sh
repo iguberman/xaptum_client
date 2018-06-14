@@ -60,7 +60,7 @@ ecdaa_member_sign $SK_BIN $CRED_BIN $SIG_BIN $MSG_BIN $BASENAME_BIN || exit 1
 SK_REV_LIST_COUNT=`wc -l $SK_REV_LIST_BIN | awk '{ print $1 }'`
 BSN_REV_LIST_COUNT=`wc -l $BSN_REV_LIST_BIN | awk '{ print $1 }'`
 
-verify \
+ecdaa_verify \
 $MSG_BIN $SIG_BIN $GPK_BIN \
 $SK_REV_LIST_BIN $SK_REV_LIST_COUNT \
 $BSN_REV_LIST_BIN $BSN_REV_LIST_COUNT \
