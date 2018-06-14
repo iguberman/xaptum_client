@@ -1,0 +1,8 @@
+Package: xaptum_client
+Version: 1.0.0-1
+Section: server
+Priority: optional
+Architecture: amd64
+Maintainer: Xaptum Sales <sales@xaptum.com>
+Depends: systemd
+Description: Xaptum Client is Xaptum client simulation tool.

@@ -40,7 +40,7 @@ generate_group_csv(GroupDir)->
   Gid = crypto:hash(sha256, Gpk),
   GidCsvFile = filename:join([GroupDir, xtt_client_utils:bin_to_hex(Gid) ++ ".csv"]),
   case file:read_file(GidCsvFile) of
-    {ok, <<"#basename,gpk\n",BasenameHex/binary,",", GpkHex/binary>>} -> {ok, already_exists}; %% correct csv already exists
+    {ok, <<"#basename,gpk\n",_Rest/binary>>} -> {ok, already_exists};
     _Other -> %% create it and prompt MB registration
       GpkHex = list_to_binary(xtt_client_utils:bin_to_hex(Gpk)),
       BasenameHex = list_to_binary(xtt_client_utils:bin_to_hex(Basename)),
