@@ -83,10 +83,10 @@ test_pub_sub(Config) ->
 
   {ok, Queues} = application:get_env(xaptum_client, dds_queues),
   {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues),
-  {ok, _SubSessionToken} = wait_for_endpoint_ready(Sub, ?READY_WAIT_TIMEOUT),
+  {ok, true} = wait_for_endpoint_ready(Sub, ?READY_WAIT_TIMEOUT),
 
   {ok, Pub} = dds_endpoint:start(PubFileCreds),
-  {ok, _PubSessionToken} = wait_for_endpoint_ready(Pub, ?READY_WAIT_TIMEOUT),
+  {ok, true} = wait_for_endpoint_ready(Pub, ?READY_WAIT_TIMEOUT),
 
   test_pub_send_message(Pub, "Hello from pub!", 1),
   test_sub_recv_message(Sub, 1),
@@ -151,18 +151,9 @@ init_file_creds(Config, MemberDir)->
     filename:join([PrivDir, MemberDir]))}.
 
 register_gpk_with_mb(GroupDir)->
-  ct:print("register_gpk_with_mb(~p)~n", [GroupDir]),
-  BasenameFile = filename:join([GroupDir, ?BASENAME_FILE]),
-  GpkFile = filename:join([GroupDir, ?DAA_GPK_FILE]),
-  ct:print("Reading file ~p~n", [BasenameFile]),
-  {ok, Basename} = file:read_file(BasenameFile),
-  ct:print("Reading file ~p~n", [GpkFile]),
-  {ok, Gpk} = file:read_file(GpkFile),
-  Gid = crypto:hash(sha256, Gpk),
-  GidCsvFile = filename:join([?MB_PUBLIC_KEYS_DIR, xtt_client_utils:bin_to_hex(Gid) ++ ".csv"]),
-  ct:print("Writing GidCsvFile: ~p~n", [GidCsvFile]),
-  GpkHex = list_to_binary(xtt_client_utils:bin_to_hex(Gpk)),
-  BasenameHex = list_to_binary(xtt_client_utils:bin_to_hex(Basename)),
-  file:write_file(GidCsvFile, <<"#basename,gpk\n",BasenameHex/binary,",", GpkHex/binary>>),
-  ct:print("Created file ~p with contents ~p", [GidCsvFile, file:read_file(GidCsvFile)]),
-  GidCsvFile.
+  case xtt_client_utils:generate_group_csv(GroupDir) of
+    {ok, already_exists} -> ok;
+    {ok, GidCsv} when is_list(GidCsv) ->
+      io:format("Generated ~p.  Please copy it to MB secrets directory~n", [GidCsv]),
+      io:fread("Press any key when done:", "~s")
+  end.
