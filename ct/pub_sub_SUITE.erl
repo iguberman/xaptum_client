@@ -154,7 +154,8 @@ register_gpk_with_mb(GroupDir)->
   case xtt_client_utils:generate_group_csv(GroupDir) of
     {ok, already_exists} -> ok;
     {ok, GidCsv} when is_list(GidCsv) ->
+      %% TEMP workaround until IAM is ready
       Prompt = lists:flatten(io_lib:format(
-        "Please copy ~p to all MBs' ~p directory.~Press any key when finished:", [GidCsv, ?MB_PUBLIC_KEYS_DIR])),
+        "Please copy ~p to all MBs' ~p directory.~nPress any key when finished:", [GidCsv, ?MB_PUBLIC_KEYS_DIR])),
       io:fread(Prompt, "~s")
   end.
