@@ -25,10 +25,12 @@
 
 -define(MB_PUBLIC_KEYS_DIR, "/opt/xaptum/public/group_public_keys").
 
+-define(CRED_BASE_DIR, "/opt/xaptum/xaptum_client").
+
 -define(GROUP_DIR, "GROUP").
 -define(CERT_DIR, "CERT").
--define(PUB_CRED_DIR, "MEMBER1").
--define(SUB_CRED_DIR, "MEMBER2").
+-define(XTT_CRED_DIR1, "MEMBER1").
+-define(XTT_CRED_DIR2, "MEMBER2").
 
 -define(GID_FILE_CONFIG, gid_file).
 
@@ -44,10 +46,9 @@ groups() -> [
 %%all() -> [test_pub, test_sub].
 
 init_per_suite(Config)->
-  CTPrivDir = ?config(priv_dir, Config),
   application:ensure_all_started(lager),
   application:ensure_all_started(xaptum_client),
-  xtt_client_utils:generate_credentials(1,2, CTPrivDir),
+  xtt_client_utils:generate_credentials(1,2, ?CRED_BASE_DIR),
   Config.
 
 end_per_suite(Config) ->
@@ -58,7 +59,7 @@ end_per_suite(Config) ->
   ok.
 
 test_pub(Config)->
-  {NewConfig, FileCreds} = init_file_creds(Config, ?PUB_CRED_DIR),
+  {NewConfig, FileCreds} = init_file_creds(Config, ?XTT_CRED_DIR1),
   {ok, Pub} = dds_endpoint:start(FileCreds),
   {ok, _PubSessionToken} = wait_for_endpoint_ready(Pub, ?READY_WAIT_TIMEOUT),
 
@@ -79,7 +80,7 @@ test_sub(Config)->
   Config.
 
 test_pub_sub(Config) ->
-  {NewConfig, PubFileCreds} = init_file_creds(Config, ?PUB_CRED_DIR),
+  {NewConfig, PubFileCreds} = init_file_creds(Config, ?XTT_CRED_DIR2),
 
   {ok, Queues} = application:get_env(xaptum_client, dds_queues),
   {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues),
@@ -137,18 +138,17 @@ test_sub_recv_message(SubPid, RecvSequence)->
 
 init_file_creds(Config, MemberDir)->
   DataDir = ?config(data_dir, Config),
-  PrivDir = ?config(priv_dir, Config),
 
   NullRequestedClientIdFile = filename:join([DataDir, ?REQUESTED_CLIENT_ID_FILE]),
 
-  GroupDir = filename:join([PrivDir, ?GROUP_DIR]),
+  GroupDir = filename:join([?CRED_BASE_DIR, ?GROUP_DIR]),
   GidCsvFile = register_gpk_with_mb(GroupDir),
 
   {[{?GID_FILE_CONFIG, GidCsvFile} | Config ], xtt_endpoint:init_file_creds(
     NullRequestedClientIdFile,
     GroupDir,
     filename:join([DataDir, ?CERT_DIR]),
-    filename:join([PrivDir, MemberDir]))}.
+    filename:join([?CRED_BASE_DIR, MemberDir]))}.
 
 register_gpk_with_mb(GroupDir)->
   case xtt_client_utils:generate_group_csv(GroupDir) of

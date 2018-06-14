@@ -27,11 +27,16 @@ BASEDIR=${2:-`pwd`}
 
 MEMBER_DIR="$BASEDIR/MEMBER$ID"
 
+if [ -d "$MEMBER_DIR" ]; then
+  echo "$MEMBER_DIR already exists"
+  exit 0
+fi
+
 GROUP_DIR="$BASEDIR/GROUP"
 
 mkdir -p $MEMBER_DIR
 
-mkdir -p $GROUP_DIR
+## mkdir -p $GROUP_DIR
 
 
 NONCE="nonce-$ID"
