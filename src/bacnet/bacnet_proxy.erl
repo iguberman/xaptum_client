@@ -8,7 +8,7 @@
 
 %% xaptum_endpoint callbacks
 -export([
-  auth/4,
+  auth/3,
   on_receive/3,
   do_receive/1,
   on_send/2,
@@ -31,49 +31,49 @@ start(Creds)->
 %% xaptum_endpoint callbacks
 %%====================================
 
-auth(XttServerHost, XttServerPort, Creds, #bacnet_pub{ dds = DdsData0 } = CallbackData) ->
-  {ok, DdsData1} = dds_endpoint:auth(XttServerHost, XttServerPort, Creds, DdsData0),
+auth(#hosts_config{} = HostsConfig, Creds, #bacnet_pub{ dds = DdsData0 } = CallbackData) ->
+  {ok, DdsData1} = dds_endpoint:auth(HostsConfig, Creds, DdsData0),
   {ok, CallbackData#bacnet_pub{dds = DdsData1}}.
 
-on_connect(EndpointPid, #bacnet_pub{ dds = DdsData0} = CallbackData) ->
-  {ok, DdsData1} = dds_endpoint:on_connect(EndpointPid, DdsData0),
+on_connect(#bacnet_pub{ dds = DdsData0} = CallbackData) ->
+  {ok, DdsData1} = dds_endpoint:on_connect(DdsData0),
   {ok, CallbackData#bacnet_pub{dds = DdsData1}}.
 
-on_reconnect(EndpointPid, #bacnet_pub{ dds = DdsData0} = CallbackData) ->
-  {ok, DdsData1} = dds_endpoint:on_reconnect(EndpointPid, DdsData0),
+on_reconnect(#bacnet_pub{ dds = DdsData0} = CallbackData) ->
+  {ok, DdsData1} = dds_endpoint:on_reconnect(DdsData0),
   {ok, CallbackData#bacnet_pub{dds = DdsData1}}.
 
-on_disconnect(EndpointPid, #bacnet_pub{ dds = DdsData0} = CallbackData) ->
-  {ok, DdsData1} = dds_endpoint:on_disconnect(EndpointPid, DdsData0),
+on_disconnect(#bacnet_pub{ dds = DdsData0} = CallbackData) ->
+  {ok, DdsData1} = dds_endpoint:on_disconnect(DdsData0),
   {ok, CallbackData#bacnet_pub{dds = DdsData1}}.
 
 
 %% READY RESPONSE RECEIVE
-on_receive(Msg, EndpointPid, #bacnet_pub{
+on_receive(Msg, #bacnet_pub{
   udp_socket = undefined,
   dds = #dds{ready = false} = DdsCallbackData0 } = CallbackData0) ->
-  case dds_endpoint:on_receive(Msg, EndpointPid, DdsCallbackData0) of
+  case dds_endpoint:on_receive(Msg, DdsCallbackData0) of
     {ok, #dds{ready = true} = DdsCallbackData1} ->
       CallbackData1 = CallbackData0#bacnet_pub{dds = DdsCallbackData1},
-      {ok, Pid} = spawn_link(?MODULE, heartbeat_loop, [CallbackData1]),
+      {ok, Pid} = spawn_link(?MODULE, heartbeat_loop, [self(), CallbackData1]),
       {ok, UdpSocket} = gen_udp:open(8780, [binary, {active, false}]),
       {ok, CallbackData1#bacnet_pub{udp_socket = UdpSocket, heartbeat_pid = Pid}};
     {error, Error} -> {error, Error}
   end;
 %% CONTROL MESSAGE RECEIVE
-on_receive(Msg, EndpointPid,
+on_receive(Msg,
     #bacnet_pub{udp_socket = Socket, udp_recv = UdpRecv, udp_sent = UdpSent,
                 dds = #dds{ready = true,
                            endpoint_data = #endpoint{msg = Bin} } = DdsCallbackData0 } = CallbackData0)
       when is_port(Socket) ->
   {ok, #dds{endpoint_data = #endpoint{msg = BacnetRequest}} = DdsCallbackData1} =
-    dds_endpoint:on_receive(Msg, EndpointPid, DdsCallbackData0),
+    dds_endpoint:on_receive(Msg, DdsCallbackData0),
   %% Send socket to 47808
   ok = gen_udp:send(Socket, {127,0,0,1}, 47808, BacnetRequest),
   %% Read the response from bacserv
   {ok, {_Address, _Port, BacnetAck}} = gen_udp:recv(Socket, 0, 5000),
   %% Now Send the ACK to control
-  xaptum_endpoint:send_message(EndpointPid, BacnetAck),
+  xaptum_endpoint:send_message(self(), BacnetAck),
   {ok, CallbackData0#bacnet_pub{dds = DdsCallbackData1, udp_recv = UdpRecv + 1, udp_sent = UdpSent + 1 }}.
 
 do_receive(TlsSocket)->

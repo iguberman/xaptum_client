@@ -6,14 +6,14 @@
 
 %% xaptum_endpoint callbacks
 -export([
-  auth/4,
+  auth/3,
   on_receive/2,
   do_receive/1,
   on_send/2,
   on_send/3,
-  on_connect/2,
-  on_reconnect/2,
-  on_disconnect/2
+  on_connect/1,
+  on_reconnect/1,
+  on_disconnect/1
 ]).
 
 %% export API
@@ -29,20 +29,20 @@ start(Creds)->
 %% xaptum_endpoint callbacks
 %%====================================
 
-auth(XttServerHost, XttServerPort, Creds, #bacnet_sub{ dds = DdsData0 } = CallbackData) ->
-  {ok, DdsData1} = dds_endpoint:auth(XttServerHost, XttServerPort, Creds, DdsData0),
+auth(#hosts_config{} = HostsConfig, Creds, #bacnet_sub{ dds = DdsData0 } = CallbackData) ->
+  {ok, DdsData1} = dds_endpoint:auth(HostsConfig, Creds, DdsData0),
   {ok, CallbackData#bacnet_sub{dds = DdsData1}}.
 
-on_connect(EndpointPid, #bacnet_sub{ dds = DdsData0} = CallbackData) ->
-  {ok, DdsData1} = dds_endpoint:on_connect(EndpointPid, DdsData0),
+on_connect(#bacnet_sub{ dds = DdsData0} = CallbackData) ->
+  {ok, DdsData1} = dds_endpoint:on_connect(DdsData0),
   {ok, CallbackData#bacnet_sub{dds = DdsData1}}.
 
-on_reconnect(EndpointPid, #bacnet_sub{ dds = DdsData0} = CallbackData) ->
-  {ok, DdsData1} = dds_endpoint:on_reconnect(EndpointPid, DdsData0),
+on_reconnect(#bacnet_sub{ dds = DdsData0} = CallbackData) ->
+  {ok, DdsData1} = dds_endpoint:on_reconnect(DdsData0),
   {ok, CallbackData#bacnet_sub{dds = DdsData1}}.
 
-on_disconnect(EndpointPid, #bacnet_sub{ dds = DdsData0} = CallbackData) ->
-  {ok, DdsData1} = dds_endpoint:on_disconnect(EndpointPid, DdsData0),
+on_disconnect(#bacnet_sub{ dds = DdsData0} = CallbackData) ->
+  {ok, DdsData1} = dds_endpoint:on_disconnect(DdsData0),
   {ok, CallbackData#bacnet_sub{dds = DdsData1}}.
 
 
