@@ -9,13 +9,13 @@
 %% xaptum_endpoint callbacks
 -export([
   auth/3,
-  on_receive/3,
+  on_receive/2,
   do_receive/1,
   on_send/2,
   on_send/3,
-  on_connect/2,
-  on_reconnect/2,
-  on_disconnect/2
+  on_connect/1,
+  on_reconnect/1,
+  on_disconnect/1
 ]).
 
 %% export API

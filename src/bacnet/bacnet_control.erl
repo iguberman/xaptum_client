@@ -48,14 +48,7 @@ on_disconnect(#bacnet_sub{ dds = DdsData0} = CallbackData) ->
 
 %% READY RESPONSE RECEIVE
 %% TODO when the session token concept goes away this initial receive should probably be on_(re)connect instead
-on_receive(Msg, #bacnet_sub{dds = #dds{ready = Whatever} = DdsCallbackData0 } = CallbackData0) ->
-  case dds_endpoint:on_receive(Msg, DdsCallbackData0) of
-    {ok, #dds{ready = true} = DdsCallbackData1} ->
-      CallbackData1 = CallbackData0#bacnet_sub{dds = DdsCallbackData1},
-      {ok, Pid} = spawn_link(?MODULE, poll_loop, [write_poll, self()]),
-      {ok, CallbackData1#bacnet_sub{poll_pid = Pid}};
-    {error, Error} -> {error, Error}
-  end;
+
 %% MSG RECEIVE
 on_receive(Msg, #bacnet_sub{dict = Dict, poll_reqs = PollReqs, dds = #dds{ready = true} = DdsCallbackData0}) ->
   %% Extract payload out of DDS message into Mdxp
@@ -71,6 +64,14 @@ on_receive(Msg, #bacnet_sub{dict = Dict, poll_reqs = PollReqs, dds = #dds{ready 
     BacnetAck ->
       process_bacnet_ack(BacnetAck),
       {ok, #bacnet_sub{dds = DdsCallbackData1, poll_reqs = PollReqs + 1}}
+  end;
+on_receive(Msg, #bacnet_sub{dds = #dds{ready = _Whatever} = DdsCallbackData0 } = CallbackData0) ->
+  case dds_endpoint:on_receive(Msg, DdsCallbackData0) of
+    {ok, #dds{ready = true} = DdsCallbackData1} ->
+      CallbackData1 = CallbackData0#bacnet_sub{dds = DdsCallbackData1},
+      {ok, Pid} = spawn_link(?MODULE, poll_loop, [write_poll, self()]),
+      {ok, CallbackData1#bacnet_sub{poll_pid = Pid}};
+    {error, Error} -> {error, Error}
   end.
 
 do_receive(TlsSocket)->
