@@ -83,6 +83,7 @@ subscribe_request(Queue)->
   dds_payload(Payload, ?SUB_REQ).
 
 event_packet(EventType, Ipv6, RemoteIp, RemotePort) ->
+  lager:info("Generating event ~p, ~p, ~p, ~p", [EventType, Ipv6, RemoteIp, RemotePort]),
   <<Ipv6:16/binary, RemoteIp:128, RemotePort:16, EventType:16>>.
 
 dds_payload(Payload, Type) when is_integer(Type), is_binary(Payload) ->
