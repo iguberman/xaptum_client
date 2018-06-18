@@ -124,7 +124,7 @@ handle_cast({auth, Inputs}, #state{
   case AuthResult of
     {ok, #tls_creds{identity = Identity, pseudonym = Pseudonym, cert = Cert, key = Key}, CallbackData1} ->
         register(binary_to_atom(Identity, latin1), self()),
-        gen_server:cast(self(), connect),
+        connect(self()),
         {noreply, State#state{ipv6 = Identity, pseudonym = Pseudonym, cert = Cert, key = Key, callback_data = CallbackData1}};
     Other ->
       lager:warning("Invalid auth result ~p", [Other]),
@@ -204,7 +204,7 @@ handle_cast({received, Msg}, #state{callback_module = CallbackModule, callback_d
 handle_cast({ssl_error, _Error}, #state{tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket} = State)
     when is_port(TcpSocket), is_pid(SslPid) ->
     erltls:close(TlsSocket),
-    gen_server:cast(self(), connect),
+    connect(self()),
   {noreply, State}.
 
 %% Handle {active, [once|N]} mode -- TODO maybe remove as there is less control over how messages are received
@@ -213,7 +213,7 @@ handle_info({ssl, TlsSocket, Msg}, #state{tls_socket = TlsSocket, callback_modul
   {noreply, State#state{callback_data = CallbackData1}};
 handle_info({ssl_error, TlsSocket, _Error}, #state{tls_socket = TlsSocket} = State)->
   erltls:close(TlsSocket),
-  gen_server:cast(self(), connect),
+  connect(self()),
   {noreply, State}.
 
 terminate(_Reason, #state{tls_socket = undefined}) ->
