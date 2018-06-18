@@ -20,7 +20,7 @@
 -include_lib("xaptum_client/include/xtt_endpoint.hrl").
 -include_lib("xaptum_client/include/dds.hrl").
 
--define(READY_WAIT_TIMEOUT, 20000).
+-define(READY_WAIT_TIMEOUT, 60000).
 -define(MESSAGE_LATENCY, 2000).
 
 -define(MB_PUBLIC_KEYS_DIR, "/opt/xaptum/public/group_public_keys").
@@ -70,7 +70,7 @@ end_per_suite(Config) ->
 test_pub(Config)->
   {NewConfig, FileCreds} = init_file_creds(Config, ?XTT_CRED_DIR1),
   {ok, Pub} = dds_endpoint:start(FileCreds, {?REMOTE_IP1_INT, ?REMOTE_PORT1}),
-  {ok, _PubSessionToken} = wait_for_endpoint_ready(Pub, ?READY_WAIT_TIMEOUT),
+  {ok, true} = wait_for_endpoint_ready(Pub, ?READY_WAIT_TIMEOUT),
 
   test_pub_send_message(Pub, "Hello from pub!", 1),
   test_pub_send_message(Pub, "Message 1 from pub!", 2),
@@ -81,7 +81,7 @@ test_pub(Config)->
 test_sub(Config)->
   {ok, Queues} = application:get_env(xaptum_client, dds_queues),
   {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues, {?REMOTE_IP2_INT, ?REMOTE_PORT2}),
-  {ok, _SubSessionToken} = wait_for_endpoint_ready(Sub, ?READY_WAIT_TIMEOUT),
+  {ok, true} = wait_for_endpoint_ready(Sub, ?READY_WAIT_TIMEOUT),
 
   test_sub_send_message(Sub, "Hello from sub!", 1),
   test_pub_send_message(Sub, "Message 1 from sub!", 2),
@@ -118,6 +118,7 @@ wait_for_endpoint_ready(Pub, Timeout)->
 wait_for_endpoint_ready(_EndpointPid, false, Timeout) when Timeout =< 0->
   {error, timeout};
 wait_for_endpoint_ready(EndpointPid, false, Timeout) ->
+  lager:info("Waiting for READY response..."),
   timer:sleep(100),
   #dds{ready = Ready} = xaptum_endpoint:get_data(EndpointPid),
   wait_for_endpoint_ready(EndpointPid, Ready, Timeout - 100);

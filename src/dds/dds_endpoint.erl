@@ -124,7 +124,7 @@ on_disconnect(CallbackData) -> {ok, CallbackData}.
 
 on_receive(<<?DDS_MARKER, ?READY, ?IPV6_SIZE:16, Ipv6:?IPV6_SIZE/bytes>>,
     #dds{sub_queues = Queues, endpoint_data = #endpoint{ipv6 = Ipv6, remote_ip = RemoteIp, remote_port = RemotePort}} = CallbackData)->
-  lager:info("Device ~p Ready response received", [Ipv6]),
+  lager:info("READY response received by ~p", [Ipv6]),
   [send_subscribe_request(Queue) || Queue <- Queues],
   {ok, CallbackData#dds{ready = true}};
 on_receive(<<?DDS_MARKER, ReqType, _Size:16, _Payload/binary>>,

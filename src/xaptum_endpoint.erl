@@ -249,8 +249,10 @@ do_tls_connect(#state{
 
 
 receive_loop(TlsSocket, EndpointPid, CallbackModule) ->
+  lager:debug("receive_loop(~p, ~p, ~p)", [TlsSocket, EndpointPid, CallbackModule]),
   case CallbackModule:do_receive(TlsSocket) of
     {ok, Msg} ->
+      lager:info("Received ~p", [Msg]),
       xaptum_endpoint:received(Msg, EndpointPid),
       receive_loop(TlsSocket, EndpointPid, CallbackModule);
     {error, Error} ->
