@@ -61,10 +61,10 @@ init_per_suite(Config)->
   Config.
 
 end_per_suite(Config) ->
-  ct:print("Config: ~p~n", [Config]),
-  GidFile = ?config(?GID_FILE_CONFIG, Config),
-  ct:print("Deleting temporary file ~p", [GidFile]),
-  file:delete(GidFile),
+%%  ct:print("Config: ~p~n", [Config]),
+%%  GidFile = ?config(?GID_FILE_CONFIG, Config),
+%%  ct:print("Deleting temporary file ~p", [GidFile]),
+%%  file:delete(GidFile),
   ok.
 
 test_pub(Config)->
@@ -118,12 +118,12 @@ wait_for_endpoint_ready(Pub, Timeout)->
 wait_for_endpoint_ready(_EndpointPid, false, Timeout) when Timeout =< 0->
   {error, timeout};
 wait_for_endpoint_ready(EndpointPid, false, Timeout) ->
-  lager:info("Waiting for READY response..."),
+  ct:print("Waiting for READY response...~n"),
   timer:sleep(100),
   #dds{ready = Ready} = xaptum_endpoint:get_data(EndpointPid),
   wait_for_endpoint_ready(EndpointPid, Ready, Timeout - 100);
 wait_for_endpoint_ready(_EndpointPid, true, Timeout) ->
-  lager:info("Ready ~p after ~p ms", [?READY_WAIT_TIMEOUT - Timeout]),
+  ct:print("Ready ~p after ~p ms~n", [?READY_WAIT_TIMEOUT - Timeout]),
   {ok, true}.
 
 test_pub_send_message(PubPid, Message, SendSequence)->
