@@ -118,7 +118,7 @@ wait_for_endpoint_ready(Pub, Timeout)->
 wait_for_endpoint_ready(_EndpointPid, false, Timeout) when Timeout =< 0->
   {error, timeout};
 wait_for_endpoint_ready(EndpointPid, false, Timeout) ->
-  ct:print("Waiting for READY response...~n"),
+%%  ct:print("Waiting for READY response...~n"),
   timer:sleep(100),
   #dds{ready = Ready} = xaptum_endpoint:get_data(EndpointPid),
   wait_for_endpoint_ready(EndpointPid, Ready, Timeout - 100);

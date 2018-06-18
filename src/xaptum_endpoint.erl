@@ -195,6 +195,8 @@ handle_cast(start_receiving, #state{
     callback_module = CallbackModule, callback_data = CallbackData} = State)
     when is_port(TcpSocket), is_pid(SslPid) ->
   EndpointPid = self(),
+  lager:info("Spawning receive_loop with args: ~p, ~p, ~p", [TlsSocket, EndpointPid, CallbackModule]),
+  io:format("Spawning receive_loop with args: ~p, ~p, ~p~n", [TlsSocket, EndpointPid, CallbackModule]),
   ReceiverPid = spawn_link(?MODULE, receive_loop, [TlsSocket, EndpointPid, CallbackModule]),
   {noreply, State#state{receiver_pid = ReceiverPid, callback_data = CallbackData}};
 
@@ -250,9 +252,11 @@ do_tls_connect(#state{
 
 receive_loop(TlsSocket, EndpointPid, CallbackModule) ->
   lager:debug("receive_loop(~p, ~p, ~p)", [TlsSocket, EndpointPid, CallbackModule]),
+  io:format("receive_loop(~p, ~p, ~p)~n", [TlsSocket, EndpointPid, CallbackModule]),
   case CallbackModule:do_receive(TlsSocket) of
     {ok, Msg} ->
       lager:info("Received ~p", [Msg]),
+      io:format("Received ~p", [Msg]),
       xaptum_endpoint:received(Msg, EndpointPid),
       receive_loop(TlsSocket, EndpointPid, CallbackModule);
     {error, Error} ->
