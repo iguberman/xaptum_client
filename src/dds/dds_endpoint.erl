@@ -18,7 +18,7 @@
 
 
 %% API
--export([start/1, start/2]).
+-export([start/2, start/3]).
 
 %% xaptum_endpoint callbacks
 -export([
@@ -32,11 +32,13 @@
   on_disconnect/1
 ]).
 
-start(Subnet, Queues)->
-  xaptum_endpoint_sup:create_endpoint(?MODULE, #dds{sub_queues = Queues}, Subnet).
+start(Subnet, Queues, {RemoteIp, RemotePort})->
+  xaptum_endpoint_sup:create_endpoint(?MODULE,
+    #dds{sub_queues = Queues, endpoint_data = #endpoint{remote_ip = RemoteIp, remote_port = RemotePort}}, Subnet).
 
-start(Creds)->
-  xaptum_endpoint_sup:create_endpoint(?MODULE, #dds{}, Creds).
+start(Creds, {RemoteIp, RemotePort})->
+  xaptum_endpoint_sup:create_endpoint(?MODULE,
+    #dds{endpoint_data = #endpoint{remote_ip = RemoteIp, remote_port = RemotePort}}, Creds).
 
 %%%===================================================================
 %%% xaptum_endpoint callbacks
@@ -166,6 +168,8 @@ send_subscribe_request(Queue)->
   SubReq = ddslib:subscribe_request(Queue),
   xaptum_endpoint:send_request(self(), SubReq).
 
+send_connect_event(Ipv6, undefined, undefined) ->
+  lager:error("FAILED to connect ~p! RemoteIp and Port are undefined!", [Ipv6]);
 send_connect_event(Ipv6, RemoteIp, RemotePort)->
   PubConnectEvent = ddslib:connect_event(Ipv6, RemoteIp, RemotePort),
   xaptum_endpoint:send_request(self(), PubConnectEvent).

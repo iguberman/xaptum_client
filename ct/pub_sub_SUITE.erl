@@ -32,6 +32,15 @@
 -define(XTT_CRED_DIR1, "MEMBER1").
 -define(XTT_CRED_DIR2, "MEMBER2").
 
+
+-define(REMOTE_IP1, <<0,0,0,0,0,0,0,0,0,0,255,255,1,1,1,1>>).
+-define(REMOTE_IP1_INT, 281470698586369).
+-define(REMOTE_IP2, <<0,0,0,0,0,0,0,0,0,0,255,255,2,2,2,2>>).
+-define(REMOTE_IP2_INT, 281470715429378).
+-define(REMOTE_PORT1, 42222).
+-define(REMOTE_PORT2, 41111).
+
+
 -define(GID_FILE_CONFIG, gid_file).
 
 
@@ -60,7 +69,7 @@ end_per_suite(Config) ->
 
 test_pub(Config)->
   {NewConfig, FileCreds} = init_file_creds(Config, ?XTT_CRED_DIR1),
-  {ok, Pub} = dds_endpoint:start(FileCreds),
+  {ok, Pub} = dds_endpoint:start(FileCreds, {?REMOTE_IP1_INT, ?REMOTE_PORT1}),
   {ok, _PubSessionToken} = wait_for_endpoint_ready(Pub, ?READY_WAIT_TIMEOUT),
 
   test_pub_send_message(Pub, "Hello from pub!", 1),
@@ -71,7 +80,7 @@ test_pub(Config)->
 
 test_sub(Config)->
   {ok, Queues} = application:get_env(xaptum_client, dds_queues),
-  {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues),
+  {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues, {?REMOTE_IP2_INT, ?REMOTE_PORT2}),
   {ok, _SubSessionToken} = wait_for_endpoint_ready(Sub, ?READY_WAIT_TIMEOUT),
 
   test_sub_send_message(Sub, "Hello from sub!", 1),
@@ -83,10 +92,10 @@ test_pub_sub(Config) ->
   {NewConfig, PubFileCreds} = init_file_creds(Config, ?XTT_CRED_DIR2),
 
   {ok, Queues} = application:get_env(xaptum_client, dds_queues),
-  {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues),
+  {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues, {?REMOTE_IP1_INT, ?REMOTE_PORT1}),
   {ok, true} = wait_for_endpoint_ready(Sub, ?READY_WAIT_TIMEOUT),
 
-  {ok, Pub} = dds_endpoint:start(PubFileCreds),
+  {ok, Pub} = dds_endpoint:start(PubFileCreds, {?REMOTE_IP2_INT, ?REMOTE_PORT2}),
   {ok, true} = wait_for_endpoint_ready(Pub, ?READY_WAIT_TIMEOUT),
 
   test_pub_send_message(Pub, "Hello from pub!", 1),

@@ -18,7 +18,7 @@
 -behavior(xaptum_endpoint).
 
 %% API
--export([start/1, init_file_creds/4]).
+-export([start/2, init_file_creds/4]).
 
 %% xaptum_endpoint callbacks
 -export([
@@ -32,9 +32,8 @@
   on_disconnect/1
 ]).
 
-start(Creds)->
-  xaptum_endpoint_sup:create_endpoint(?MODULE, #endpoint{}, Creds).
-
+start(Creds, {RemoteIp, RemotePort})->
+  xaptum_endpoint_sup:create_endpoint(?MODULE, #endpoint{remote_ip = RemoteIp, remote_port = RemotePort}, Creds).
 
 %%%===================================================================
 %%% xaptum_endpoint callbacks
