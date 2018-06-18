@@ -135,11 +135,13 @@ handle_cast({auth, Inputs}, #state{
 handle_cast(maybe_connect, #state{ tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = _ExistingTlsSocket,
   callback_module = CallbackModule, callback_data = CallbackData0} = State) when is_port(TcpSocket), is_pid(SslPid) ->
   {ok, CallbackData1} = CallbackModule:on_connect(CallbackData0),
+  start_receiving(self()),
   {noreply, State#state{callback_data = CallbackData1}};
 handle_cast(maybe_connect, #state{ tls_socket = undefined,
   callback_module = CallbackModule, callback_data = CallbackData0} = State)->
   {ok, TlsSocket} = do_tls_connect(State),
   {ok, CallbackData1} = CallbackModule:on_connect(CallbackData0),
+  start_receiving(self()),
   {noreply, State#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
 
 %% Connect if not connected, force reconnect if it is
@@ -154,7 +156,7 @@ handle_cast(maybe_reconnect, #state{
       erltls:close(MaybeExistingTlsSocket),
       {ok, CallbackData1} = CallbackModule:on_reconnect(CallbackData0)
   end,
-
+  start_receiving(self()),
   {noreply, State#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
 
 handle_cast({send_message, Payload, Dest}, #state{
@@ -196,7 +198,6 @@ handle_cast(start_receiving, #state{
     when is_port(TcpSocket), is_pid(SslPid) ->
   EndpointPid = self(),
   lager:info("Spawning receive_loop with args: ~p, ~p, ~p", [TlsSocket, EndpointPid, CallbackModule]),
-  io:format("Spawning receive_loop with args: ~p, ~p, ~p~n", [TlsSocket, EndpointPid, CallbackModule]),
   ReceiverPid = spawn_link(?MODULE, receive_loop, [TlsSocket, EndpointPid, CallbackModule]),
   {noreply, State#state{receiver_pid = ReceiverPid, callback_data = CallbackData}};
 
@@ -252,11 +253,9 @@ do_tls_connect(#state{
 
 receive_loop(TlsSocket, EndpointPid, CallbackModule) ->
   lager:debug("receive_loop(~p, ~p, ~p)", [TlsSocket, EndpointPid, CallbackModule]),
-  io:format("receive_loop(~p, ~p, ~p)~n", [TlsSocket, EndpointPid, CallbackModule]),
   case CallbackModule:do_receive(TlsSocket) of
     {ok, Msg} ->
       lager:info("Received ~p", [Msg]),
-      io:format("Received ~p", [Msg]),
       xaptum_endpoint:received(Msg, EndpointPid),
       receive_loop(TlsSocket, EndpointPid, CallbackModule);
     {error, Error} ->
