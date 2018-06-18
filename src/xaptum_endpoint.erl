@@ -187,9 +187,14 @@ handle_cast({send_message, Payload}, #state{
   end;
 handle_cast({send_request, Request}, #state{
   tls_socket = #tlssocket{} = TlsSocket} = State)->
-  ok = erltls:send(TlsSocket, Request),
-  lager:info("Sent request ~p", [Request]),
-  {noreply, State};
+  case erltls:send(TlsSocket, Request) of
+    ok ->
+      lager:info("Sent request ~p", [Request]),
+      {noreply, State};
+    {error, Error} ->
+      lager:error("Failed to send request ~p due to error ~p", [Request, Error]),
+      {stop, {tls_error, Error}, State}
+  end;
 
 %% Handle {active, false} mode
 handle_cast(start_receiving, #state{

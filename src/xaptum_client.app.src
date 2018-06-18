@@ -8,7 +8,6 @@
     stdlib,
     sasl,
     lager,
-    ssl,
     enacl,
     erltls,
     xtt_erlang,
