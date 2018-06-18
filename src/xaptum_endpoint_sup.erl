@@ -49,7 +49,7 @@ init([HostsConfig]) ->
       restart => permanent,
       shutdown => 1000},
 
-  lager:info("Starting xaptum_endpoint_sup on ~p:~p,~p", [HostsConfig]),
+  lager:info("Starting xaptum_endpoint_sup on ~p", [HostsConfig]),
 
   {ok, {RestartStrategy, [EndpointSpec]}}.
 
