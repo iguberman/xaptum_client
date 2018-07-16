@@ -147,7 +147,7 @@ handle_cast(maybe_connect, #state{ tls_socket = undefined,
     Other ->
       lager:error("Couldn't tls connect, result: ~p", Other),
       {stop, {error, tls_connect_error}, State}
-  end.
+  end;
 
 
 %% Connect if not connected, force reconnect if it is
