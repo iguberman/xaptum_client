@@ -139,10 +139,16 @@ handle_cast(maybe_connect, #state{ tls_socket = #tlssocket{tcp_sock = TcpSocket,
   {noreply, State#state{callback_data = CallbackData1}};
 handle_cast(maybe_connect, #state{ tls_socket = undefined,
   callback_module = CallbackModule, callback_data = CallbackData0} = State)->
-  {ok, TlsSocket} = do_tls_connect(State),
-  {ok, CallbackData1} = CallbackModule:on_connect(CallbackData0),
-  start_receiving(self()),
-  {noreply, State#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
+  case do_tls_connect(State) of
+    {ok, #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket} when is_pid(SslPid), is_port(TcpSocket)->
+      {ok, CallbackData1} = CallbackModule:on_connect(CallbackData0),
+      start_receiving(self()),
+      {noreply, State#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
+    Other ->
+      lager:error("Couldn't tls connect, result: ~p", Other),
+      {stop, {error, tls_connect_error}, State}
+  end.
+
 
 %% Connect if not connected, force reconnect if it is
 handle_cast(maybe_reconnect, #state{
