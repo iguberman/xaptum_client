@@ -173,17 +173,19 @@ send_subscribe_request(Queue) ->
   xaptum_endpoint:send_request(self(), SubReq).
 
 send_client_hello(TlsSocket, Ipv6) ->
+  lager:info("Sending client hello to TlsSocket ~p", [TlsSocket]),
   PubClientHello = ddslib:client_hello(Ipv6),
   case erltls:send(TlsSocket, PubClientHello) of
     ok ->
-      lager:info("Sent request ~p", [PubClientHello]),
+      lager:info("Sent client hello: ~p", [PubClientHello]),
       ok;
     {error, Error} ->
-      lager:error("Failed to send request ~p due to error ~p", [PubClientHello, Error]),
+      lager:error("Failed to send client hello ~p due to error ~p", [PubClientHello, Error]),
       {error, {tls_error, Error}}
   end.
 
 receive_server_hello(TlsSocket, Ipv6) ->
+  lager:info("Receiving server hello from TlsSocket ~p", [TlsSocket]),
   ExpectedMessage = ddslib:server_hello(Ipv6),
   case erltls:recv(TlsSocket, size(ExpectedMessage), ?SERVER_HELLO_TIMEOUT) of
     {ok, ExpectedMessage} ->
