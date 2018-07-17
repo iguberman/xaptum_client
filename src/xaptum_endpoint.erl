@@ -147,6 +147,7 @@ handle_cast(maybe_connect, #state{ tls_socket = undefined,
   case do_tls_connect(State) of
     {ok, #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket} when is_pid(SslPid), is_port(TcpSocket)->
       {ok, CallbackData1} = CallbackModule:on_connect(TlsSocket, CallbackData0),
+      lager:info("on_connect succcess, resulting callback data ~p", [CallbackData1]),
       start_receiving(self()),
       {noreply, State#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
     Other ->
@@ -162,11 +163,14 @@ handle_cast(maybe_reconnect, #state{
   {ok, TlsSocket} = do_tls_connect(State),
   case MaybeExistingTlsSocket of
     undefined -> %% this WAS NOT a REconnect
+      lager:info("CONNECTED to ~p", [TlsSocket]),
       {ok, CallbackData1} = CallbackModule:on_connect(TlsSocket, CallbackData0);
     #tlssocket{} = NewTlsSocket -> %% yes, this WAS a REconnect
       erltls:close(MaybeExistingTlsSocket),
+      lager:info("RECONNECTING... closed ~p and opened ~p", [MaybeExistingTlsSocket, NewTlsSocket]),
       {ok, CallbackData1} = CallbackModule:on_reconnect(NewTlsSocket, CallbackData0)
   end,
+  lager:info("MAYBE reconnect successful, start_receiving..."),
   start_receiving(self()),
   {noreply, State#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
 

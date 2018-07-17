@@ -87,7 +87,7 @@ dds_payload(Payload, Type) when is_integer(Type), is_binary(Payload) ->
   <<?DDS_MARKER, Type, Size:16, Payload/binary>>.
 
 recv(Client) ->
-  case erltls:recv(Client, 4, 2000) of
+  case erltls:recv(Client, 4, 5000) of
     {ok, FixedHeader} ->
       <<?DDS_MARKER:8, _Type:8, Size:16>> = FixedHeader,
        case erltls:recv(Client, Size, 2000) of
@@ -95,7 +95,7 @@ recv(Client) ->
          {error, Error} -> lager:error("Error receiving expected ~b bytes", [Size]),
            {error, Error}
        end;
-    {error, Error} -> lager:error("Error receiving dds header", [Error]),
+    {error, Error} -> lager:error("Error ~p receiving dds header", [Error]),
       {error, Error}
   end.
 
