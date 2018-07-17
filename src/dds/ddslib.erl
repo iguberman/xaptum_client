@@ -20,8 +20,8 @@
 -module(ddslib).
 
 -export([
-  connect_event/3,
-  disconnect_event/3,
+  client_hello/1,
+  server_hello/1,
   subscribe_request/1,
   control_request/2,
   reg_msg_request/1,
@@ -65,11 +65,11 @@
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-connect_event(Ipv6, RemoteIp, RemotePort)->
-  event_packet(?CONNECT, Ipv6, RemoteIp, RemotePort).
+client_hello(Ipv6) ->
+  <<?DDS_MARKER, ?DDS_CLIENT_HELLO, ?IPV6_SIZE:16, Ipv6:?IPV6_SIZE/bytes>>.
 
-disconnect_event(Ipv6, RemoteIp, RemotePort)->
-  event_packet(?DISCONNECT, Ipv6, RemoteIp, RemotePort).
+server_hello(Ipv6) ->
+  <<?DDS_MARKER, ?DDS_SERVER_HELLO, ?IPV6_SIZE:16, Ipv6:?IPV6_SIZE/bytes>>.
 
 control_request(Message, DestIpv6) when is_binary(Message)->
   Payload = <<DestIpv6/binary, Message/binary>>,
@@ -81,10 +81,6 @@ reg_msg_request(Message) when is_binary(Message) ->
 subscribe_request(Queue)->
   Payload = <<Queue/binary>>,
   dds_payload(Payload, ?SUB_REQ).
-
-event_packet(EventType, Ipv6, RemoteIp, RemotePort) ->
-  lager:info("Generating event ~p, ~p, ~p, ~p", [EventType, Ipv6, RemoteIp, RemotePort]),
-  <<Ipv6:16/binary, RemoteIp:128, RemotePort:16, EventType:16>>.
 
 dds_payload(Payload, Type) when is_integer(Type), is_binary(Payload) ->
   Size = size(Payload),

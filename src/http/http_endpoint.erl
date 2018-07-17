@@ -45,12 +45,12 @@ on_send(Msg, Dest, CallbackData) ->
 on_send(Msg, CallbackData) ->
   xtt_endpoint:on_send(Msg, CallbackData).
 
-on_connect(EndpointPid, CallbackData) ->
-  xtt_endpoint:on_connect(EndpointPid, CallbackData).
+on_connect(TlsSocket, CallbackData) ->
+  xtt_endpoint:on_connect(TlsSocket, CallbackData).
 
-on_reconnect(EndpointPid, CallbackData) ->
-  xtt_endpoint:on_reconnect(EndpointPid, CallbackData).
+on_reconnect(TlsSocket, CallbackData) ->
+  xtt_endpoint:on_reconnect(TlsSocket, CallbackData).
 
-on_disconnect(EndpointPid, CallbackData) ->
-  xtt_endpoint:on_disconnect(EndpointPid, CallbackData).
+on_disconnect(TlsSocket, CallbackData) ->
+  xtt_endpoint:on_disconnect(TlsSocket, CallbackData).
 

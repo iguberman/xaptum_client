@@ -27,9 +27,9 @@
   do_receive/1,
   on_send/2,
   on_send/3,
-  on_connect/1,
-  on_reconnect/1,
-  on_disconnect/1
+  on_connect/2,
+  on_reconnect/2,
+  on_disconnect/2
 ]).
 
 start(Creds, {RemoteIp, RemotePort})->
@@ -70,13 +70,13 @@ on_send(Msg, _Dest, #endpoint{num_received = NumSent} = CallbackData) ->
 on_send(Msg, #endpoint{num_sent = NumSent} = CallbackData) ->
   {ok, Msg, CallbackData#endpoint{num_sent = NumSent + 1}}.
 
-on_connect(CallbackData) ->
+on_connect(_TlsSocket, CallbackData) ->
   {ok, CallbackData}.
 
-on_reconnect(#endpoint{num_reconnects = Reconnects} = CallbackData) ->
+on_reconnect(_TlsSocket, #endpoint{num_reconnects = Reconnects} = CallbackData) ->
   {ok, CallbackData#endpoint{num_reconnects = Reconnects + 1}}.
 
-on_disconnect(CallbackData) ->
+on_disconnect(_TlsSocket, CallbackData) ->
   {ok, CallbackData}.
 
 
@@ -136,7 +136,8 @@ get_creds_from_xtt_context (HandshakeContext)->
 
   {ok, CertAsn1} = xtt_erlang:xtt_x509_from_keypair(LongTermKey, LongTermPrivKey, Identity),
 
-  lager:info("Identity: ~p~nCertAsn1: ~p~nLongTermKey ~p~nLongTermPrivKey ~p", [Identity, CertAsn1, LongTermKey, LongTermPrivKey]),
+  lager:info("IDENTITY: ~p", [Identity]),
+  lager:info("CertAsn1: ~p, LongTermKey ~p, LongTermPrivKey ~p", [CertAsn1, LongTermKey, LongTermPrivKey]),
 
   {ok, PrivKeyAsn1} = xtt_erlang:xtt_asn1_from_private_key(LongTermPrivKey),
 

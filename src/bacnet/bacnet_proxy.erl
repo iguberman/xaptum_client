@@ -13,9 +13,9 @@
   do_receive/1,
   on_send/2,
   on_send/3,
-  on_connect/1,
-  on_reconnect/1,
-  on_disconnect/1
+  on_connect/2,
+  on_reconnect/2,
+  on_disconnect/2
 ]).
 
 %% export API
@@ -35,16 +35,16 @@ auth(#hosts_config{} = HostsConfig, Creds, #bacnet_pub{ dds = DdsData0 } = Callb
   {ok, DdsData1} = dds_endpoint:auth(HostsConfig, Creds, DdsData0),
   {ok, CallbackData#bacnet_pub{dds = DdsData1}}.
 
-on_connect(#bacnet_pub{ dds = DdsData0} = CallbackData) ->
-  {ok, DdsData1} = dds_endpoint:on_connect(DdsData0),
+on_connect(TlsSocket, #bacnet_pub{ dds = DdsData0} = CallbackData) ->
+  {ok, DdsData1} = dds_endpoint:on_connect(TlsSocket, DdsData0),
   {ok, CallbackData#bacnet_pub{dds = DdsData1}}.
 
-on_reconnect(#bacnet_pub{ dds = DdsData0} = CallbackData) ->
-  {ok, DdsData1} = dds_endpoint:on_reconnect(DdsData0),
+on_reconnect(TlsSocket, #bacnet_pub{ dds = DdsData0} = CallbackData) ->
+  {ok, DdsData1} = dds_endpoint:on_reconnect(TlsSocket, DdsData0),
   {ok, CallbackData#bacnet_pub{dds = DdsData1}}.
 
-on_disconnect(#bacnet_pub{ dds = DdsData0} = CallbackData) ->
-  {ok, DdsData1} = dds_endpoint:on_disconnect(DdsData0),
+on_disconnect(TlsSocket, #bacnet_pub{ dds = DdsData0} = CallbackData) ->
+  {ok, DdsData1} = dds_endpoint:on_disconnect(TlsSocket, DdsData0),
   {ok, CallbackData#bacnet_pub{dds = DdsData1}}.
 
 

@@ -55,9 +55,9 @@
   {ok, Msg :: binary(), CallbackData :: any()}.
 -callback on_send(Msg :: binary(), CallbackData :: any()) ->
   {ok, Msg :: binary(), CallbackData :: any()}.
--callback on_disconnect(CallbackData :: any()) -> {ok, CallbackData :: any}.
--callback on_connect(CallbackData :: any()) -> {ok, CallbackData :: any()}.
--callback on_reconnect(CallbackData :: any()) -> {ok, Callbackdata :: any()}.
+-callback on_disconnect(TlsSocket :: tuple(), CallbackData :: any()) -> {ok, CallbackData :: any}.
+-callback on_connect(TlsSocket :: tuple(), CallbackData :: any()) -> {ok, CallbackData :: any()} | {error, Error :: any}.
+-callback on_reconnect(TlsSocket :: tuple(), CallbackData :: any()) -> {ok, Callbackdata :: any()} | {error, Error :: any}.
 
 %% TODO for when xtt is not the ony way to authenticate with xaptum and get tls cert and key
 %%-callback get_key(Creds :: tuple()) -> Key :: binary().
@@ -132,16 +132,21 @@ handle_cast({auth, Inputs}, #state{
   end;
 
 %% Create new tls connection if there isn't one
-handle_cast(maybe_connect, #state{ tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = _ExistingTlsSocket,
+handle_cast(maybe_connect, #state{ tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = ExistingTlsSocket,
   callback_module = CallbackModule, callback_data = CallbackData0} = State) when is_port(TcpSocket), is_pid(SslPid) ->
-  {ok, CallbackData1} = CallbackModule:on_connect(CallbackData0),
-  start_receiving(self()),
-  {noreply, State#state{callback_data = CallbackData1}};
+  case CallbackModule:on_connect(ExistingTlsSocket, CallbackData0) of
+    {ok, CallbackData1} ->
+        start_receiving(self()),
+      {noreply, State#state{callback_data = CallbackData1}};
+    {error, Error} ->
+      {stop, {error, Error}, State}
+  end;
+
 handle_cast(maybe_connect, #state{ tls_socket = undefined,
   callback_module = CallbackModule, callback_data = CallbackData0} = State)->
   case do_tls_connect(State) of
     {ok, #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket} when is_pid(SslPid), is_port(TcpSocket)->
-      {ok, CallbackData1} = CallbackModule:on_connect(CallbackData0),
+      {ok, CallbackData1} = CallbackModule:on_connect(TlsSocket, CallbackData0),
       start_receiving(self()),
       {noreply, State#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
     Other ->
@@ -157,10 +162,10 @@ handle_cast(maybe_reconnect, #state{
   {ok, TlsSocket} = do_tls_connect(State),
   case MaybeExistingTlsSocket of
     undefined -> %% this WAS NOT a REconnect
-      {ok, CallbackData1} = CallbackModule:on_connect(CallbackData0);
-    #tlssocket{} -> %% yes, this WAS a REconnect
+      {ok, CallbackData1} = CallbackModule:on_connect(TlsSocket, CallbackData0);
+    #tlssocket{} = NewTlsSocket -> %% yes, this WAS a REconnect
       erltls:close(MaybeExistingTlsSocket),
-      {ok, CallbackData1} = CallbackModule:on_reconnect(CallbackData0)
+      {ok, CallbackData1} = CallbackModule:on_reconnect(NewTlsSocket, CallbackData0)
   end,
   start_receiving(self()),
   {noreply, State#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
@@ -260,7 +265,6 @@ do_tls_connect(#state{
       {cert, Cert},
       {key, Key}
     ],2000).
-
 
 receive_loop(TlsSocket, EndpointPid, CallbackModule) ->
   lager:debug("receive_loop(~p, ~p, ~p)", [TlsSocket, EndpointPid, CallbackModule]),

@@ -16,6 +16,7 @@
 -define(XCR_USERNAME_ENV, "XCR_USERNAME").
 -define(XCR_TOKEN_ENV, "XCR_TOKEN").
 
+-define(SERVER_HELLO_TIMEOUT, 10000).
 
 %% API
 -export([start/2, start/3]).
@@ -27,14 +28,15 @@
   on_send/3,
   on_receive/2,
   do_receive/1,
-  on_connect/1,
-  on_reconnect/1,
-  on_disconnect/1
+  on_connect/2,
+  on_reconnect/2,
+  on_disconnect/2
 ]).
 
 start(Subnet, Queues, {RemoteIp, RemotePort})->
+  RemoteIpv6 = inet:parse_ipv6_address(RemoteIp),
   xaptum_endpoint_sup:create_endpoint(?MODULE,
-    #dds{sub_queues = Queues, endpoint_data = #endpoint{remote_ip = RemoteIp, remote_port = RemotePort}}, Subnet).
+    #dds{sub_queues = Queues, endpoint_data = #endpoint{remote_ip = RemoteIpv6, remote_port = RemotePort}}, Subnet).
 
 start(Creds, {RemoteIp, RemotePort})->
   xaptum_endpoint_sup:create_endpoint(?MODULE,
@@ -108,23 +110,25 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
 
   {ok, TlsCreds, CallbackData#dds{endpoint_data = EndpointData#endpoint{ipv6 = Identity}}}.
 
-on_connect(#dds{endpoint_data = #endpoint{ipv6 = Ipv6, remote_ip = RemoteIp, remote_port = RemotePort} = EndpointData0} = CallbackData) ->
-  send_connect_event(Ipv6, RemoteIp, RemotePort),
-  {ok, EndpointData1} = xtt_endpoint:on_connect(EndpointData0),
+on_connect(TlsSocket, #dds{endpoint_data = #endpoint{ipv6 = Ipv6, remote_ip = RemoteIp, remote_port = RemotePort} = EndpointData0} = CallbackData) ->
+  send_client_hello(TlsSocket, Ipv6),
+  receive_server_hello(TlsSocket, Ipv6),
+  {ok, EndpointData1} = xtt_endpoint:on_connect(TlsSocket, EndpointData0),
   {ok, CallbackData#dds{ready = false, endpoint_data = EndpointData1}}.
 
-on_reconnect(#dds{
+on_reconnect(TlsSocket, #dds{
   endpoint_data = EndpointData0 = #endpoint{ipv6 = Ipv6}} = CallbackData0) ->
-  {ok, CallbackData1} = dds_endpoint:on_connect(CallbackData0),
-  {ok, EndpointData1} = xtt_endpoint:on_reconnect(EndpointData0),
+  {ok, CallbackData1} = dds_endpoint:on_connect(TlsSocket, CallbackData0),
+  {ok, EndpointData1} = xtt_endpoint:on_reconnect(TlsSocket, EndpointData0),
   {ok, CallbackData1#dds{endpoint_data = EndpointData1}}.
 
 
-on_disconnect(CallbackData) -> {ok, CallbackData}.
+on_disconnect(_TlsSocket, CallbackData) ->
+  {ok, CallbackData}.
 
-on_receive(<<?DDS_MARKER, ?READY, ?IPV6_SIZE:16, Ipv6:?IPV6_SIZE/bytes>>,
-    #dds{sub_queues = Queues, endpoint_data = #endpoint{ipv6 = Ipv6, remote_ip = RemoteIp, remote_port = RemotePort}} = CallbackData)->
-  lager:info("READY response received by ~p", [Ipv6]),
+on_receive(<<?DDS_MARKER, ?DDS_SERVER_HELLO, ?IPV6_SIZE:16, Ipv6:?IPV6_SIZE/bytes>>,
+    #dds{sub_queues = Queues, endpoint_data = #endpoint{ipv6 = Ipv6}} = CallbackData)->
+  lager:info("SERVER HELLO received by ~p", [Ipv6]),
   [send_subscribe_request(Queue) || Queue <- Queues],
   {ok, CallbackData#dds{ready = true}};
 on_receive(<<?DDS_MARKER, ReqType, _Size:16, _Payload/binary>>,
@@ -164,12 +168,30 @@ on_send(_Msg, _Dest, #dds{ready = false}) ->
 %%% Internal functions
 %%%===================================================================
 
-send_subscribe_request(Queue)->
+send_subscribe_request(Queue) ->
   SubReq = ddslib:subscribe_request(Queue),
   xaptum_endpoint:send_request(self(), SubReq).
 
-send_connect_event(Ipv6, undefined, undefined) ->
-  lager:error("FAILED to connect ~p! RemoteIp and Port are undefined!", [Ipv6]);
-send_connect_event(Ipv6, RemoteIp, RemotePort)->
-  PubConnectEvent = ddslib:connect_event(Ipv6, RemoteIp, RemotePort),
-  xaptum_endpoint:send_request(self(), PubConnectEvent).
+send_client_hello(TlsSocket, Ipv6) ->
+  PubClientHello = ddslib:client_hello(Ipv6),
+  case erltls:send(TlsSocket, PubClientHello) of
+    ok ->
+      lager:info("Sent request ~p", [PubClientHello]),
+      ok;
+    {error, Error} ->
+      lager:error("Failed to send request ~p due to error ~p", [PubClientHello, Error]),
+      {error, {tls_error, Error}}
+  end.
+
+receive_server_hello(TlsSocket, Ipv6) ->
+  ExpectedMessage = ddslib:server_hello(Ipv6),
+  case erltls:recv(TlsSocket, size(ExpectedMessage), ?SERVER_HELLO_TIMEOUT) of
+    {ok, ExpectedMessage} ->
+      lager:info("Received server hello ~p", [ExpectedMessage]), ok;
+    {ok, UnexpectedMessage} ->
+      lager:warning("Received ~p instead of expected server hello ~p", [UnexpectedMessage, ExpectedMessage]),
+      {error, {unexpected_message, UnexpectedMessage}};
+    {error, Error} ->
+      lager:error("Error ~p while receiving server hello ~p", [Error, ExpectedMessage]),
+      {error, Error}
+  end.
