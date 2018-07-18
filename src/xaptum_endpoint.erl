@@ -200,6 +200,9 @@ handle_cast({send_message, Payload}, #state{
       lager:info("Sent message ~p to ~p", [Message]),
       {noreply, State#state{callback_data = CallbackData1}}
   end;
+handle_cast({send_message, Payload}, State)->
+  lager:error("Send message ~p during invalid state ~p", [Payload, State]),
+  {stop, invalid_state, State};
 handle_cast({send_request, Request}, #state{
   tls_socket = #tlssocket{} = TlsSocket} = State)->
   case erltls:send(TlsSocket, Request) of

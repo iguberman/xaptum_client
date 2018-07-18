@@ -20,7 +20,7 @@
 -include_lib("xaptum_client/include/xtt_endpoint.hrl").
 -include_lib("xaptum_client/include/dds.hrl").
 
--define(READY_WAIT_TIMEOUT, 60000).
+
 -define(MESSAGE_LATENCY, 2000).
 
 -define(MB_PUBLIC_KEYS_DIR, "/opt/xaptum/public/group_public_keys").
@@ -71,22 +71,28 @@ test_pub(Config)->
   {NewConfig, FileCreds} = init_file_creds(Config, ?XTT_CRED_DIR1),
   {ok, Pub} = dds_endpoint:start(FileCreds, {?REMOTE_IP1, ?REMOTE_PORT1}),
   ct:print("Pub endpoint started: ~p", [Pub] ),
-%%  {ok, true} = wait_for_endpoint_ready(Pub, ?READY_WAIT_TIMEOUT),
+  {ok, true} = dds_endpoint:wait_for_endpoint_ready(Pub),
 
   test_pub_send_message(Pub, "Hello from pub!", 1),
   test_pub_send_message(Pub, "Message 1 from pub!", 2),
   test_pub_send_message(Pub, "Message 2 from pub!", 3),
   ct:print("New config: ~p~n", [NewConfig]),
+
+  timer:sleep(5000),
+
   NewConfig.
 
 test_sub(Config)->
   {ok, Queues} = application:get_env(xaptum_client, dds_queues),
   {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues, {?REMOTE_IP2, ?REMOTE_PORT2}),
-  {ok, true} = wait_for_endpoint_ready(Sub, ?READY_WAIT_TIMEOUT),
+  {ok, true} = dds_endpoint:wait_for_endpoint_ready(Sub),
 
   test_sub_send_message(Sub, "Hello from sub!", 1),
   test_pub_send_message(Sub, "Message 1 from sub!", 2),
   test_pub_send_message(Sub, "Message 2 from sub!", 3),
+
+  timer:sleep(5000),
+
   Config.
 
 test_pub_sub(Config) ->
@@ -94,10 +100,10 @@ test_pub_sub(Config) ->
 
   {ok, Queues} = application:get_env(xaptum_client, dds_queues),
   {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues, {?REMOTE_IP1, ?REMOTE_PORT1}),
-  {ok, true} = wait_for_endpoint_ready(Sub, ?READY_WAIT_TIMEOUT),
+  {ok, true} = dds_endpoint:wait_for_endpoint_ready(Sub),
 
   {ok, Pub} = dds_endpoint:start(PubFileCreds, {?REMOTE_IP2, ?REMOTE_PORT2}),
-  {ok, true} = wait_for_endpoint_ready(Pub, ?READY_WAIT_TIMEOUT),
+  {ok, true} = dds_endpoint:wait_for_endpoint_ready(Pub),
 
   test_pub_send_message(Pub, "Hello from pub!", 1),
   test_sub_recv_message(Sub, 1),
@@ -112,20 +118,6 @@ test_pub_sub(Config) ->
 %%%===================================================================
 %%% Test utils
 %%%===================================================================
-
-wait_for_endpoint_ready(Pub, Timeout)->
-  wait_for_endpoint_ready(Pub, false, Timeout).
-
-wait_for_endpoint_ready(_EndpointPid, false, Timeout) when Timeout =< 0->
-  {error, timeout};
-wait_for_endpoint_ready(EndpointPid, false, Timeout) ->
-%%  ct:print("Waiting for READY response...~n"),
-  timer:sleep(100),
-  #dds{ready = Ready} = xaptum_endpoint:get_data(EndpointPid),
-  wait_for_endpoint_ready(EndpointPid, Ready, Timeout - 100);
-wait_for_endpoint_ready(_EndpointPid, true, Timeout) ->
-  ct:print("Ready ~p after ~p ms~n", [?READY_WAIT_TIMEOUT - Timeout]),
-  {ok, true}.
 
 test_pub_send_message(PubPid, Message, SendSequence)->
   xaptum_endpoint:send_message(PubPid, Message),

@@ -17,9 +17,14 @@
 -define(XCR_TOKEN_ENV, "XCR_TOKEN").
 
 -define(SERVER_HELLO_TIMEOUT, 10000).
+-define(READY_WAIT_TIMEOUT, 30000).
 
 %% API
--export([start/2, start/3]).
+-export([
+  start/2,
+  start/3,
+  wait_for_endpoint_ready/1,
+  wait_for_endpoint_ready/2]).
 
 %% xaptum_endpoint callbacks
 -export([
@@ -34,13 +39,27 @@
 ]).
 
 start(Subnet, Queues, {RemoteIp, RemotePort})->
-  RemoteIpv6 = inet:parse_ipv6_address(RemoteIp),
   xaptum_endpoint_sup:create_endpoint(?MODULE,
-    #dds{sub_queues = Queues, endpoint_data = #endpoint{remote_ip = RemoteIpv6, remote_port = RemotePort}}, Subnet).
+    #dds{sub_queues = Queues, endpoint_data = #endpoint{remote_ip = RemoteIp, remote_port = RemotePort}}, Subnet).
 
 start(Creds, {RemoteIp, RemotePort})->
   xaptum_endpoint_sup:create_endpoint(?MODULE,
     #dds{endpoint_data = #endpoint{remote_ip = RemoteIp, remote_port = RemotePort}}, Creds).
+
+wait_for_endpoint_ready(Pub) ->
+  wait_for_endpoint_ready(Pub, ?READY_WAIT_TIMEOUT).
+
+wait_for_endpoint_ready(Pub, Timeout)->
+  wait_for_endpoint_ready(Pub, false, Timeout).
+
+wait_for_endpoint_ready(_EndpointPid, false, Timeout) when Timeout =< 0->
+  {error, timeout};
+wait_for_endpoint_ready(EndpointPid, false, Timeout) ->
+  timer:sleep(100),
+  #dds{ready = Ready} = xaptum_endpoint:get_data(EndpointPid),
+  wait_for_endpoint_ready(EndpointPid, Ready, Timeout - 100);
+wait_for_endpoint_ready(_EndpointPid, true, _Timeout) ->
+  {ok, true}.
 
 %%%===================================================================
 %%% xaptum_endpoint callbacks
@@ -111,10 +130,17 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
   {ok, TlsCreds, CallbackData#dds{endpoint_data = EndpointData#endpoint{ipv6 = Identity}}}.
 
 on_connect(TlsSocket, #dds{endpoint_data = #endpoint{ipv6 = Ipv6, remote_ip = RemoteIp, remote_port = RemotePort} = EndpointData0} = CallbackData) ->
-  send_client_hello(TlsSocket, Ipv6),
-  receive_server_hello(TlsSocket, Ipv6),
-  {ok, EndpointData1} = xtt_endpoint:on_connect(TlsSocket, EndpointData0),
-  {ok, CallbackData#dds{ready = false, endpoint_data = EndpointData1}}.
+  case send_client_hello(TlsSocket, Ipv6) of
+    ok ->
+      case receive_server_hello(TlsSocket, Ipv6) of
+        ok ->
+          {ok, EndpointData1} = xtt_endpoint:on_connect(TlsSocket, EndpointData0),
+          {ok, CallbackData#dds{ready = true, endpoint_data = EndpointData1}};
+        {error, _Error} -> {error, server_hello_error}
+      end;
+    {error, _Error} -> {error, client_hello_error}
+  end.
+
 
 on_reconnect(TlsSocket, #dds{
   endpoint_data = EndpointData0 = #endpoint{ipv6 = Ipv6}} = CallbackData0) ->
