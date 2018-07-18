@@ -46,7 +46,6 @@
 -callback auth(HostsConfig :: tuple(), Inputs :: term(), CallbackData :: any())->
   {Identity :: binary() , Cert :: binary(), Key :: binary()}.
 -callback on_receive(Msg :: binary(), CallbackData :: any()) -> {ok, CallbackData :: any()}.
--callback do_receive(TlsSocket :: tuple()) -> {ok, Msg :: any} | {error, Error :: any}.
 -callback on_send(Msg :: binary(), Dest :: any(), CallbackData :: any()) ->
   {ok, Msg :: binary(), CallbackData :: any()}.
 -callback on_send(Msg :: binary(), CallbackData :: any()) ->

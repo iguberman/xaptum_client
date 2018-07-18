@@ -8,7 +8,6 @@
 -export([
   auth/3,
   on_receive/2,
-  do_receive/1,
   on_send/2,
   on_send/3,
   on_connect/2,
@@ -73,9 +72,6 @@ on_receive(Msg, #bacnet_sub{dds = #dds{ready = _Whatever} = DdsCallbackData0 } =
       {ok, CallbackData1#bacnet_sub{poll_pid = Pid}};
     {error, Error} -> {error, Error}
   end.
-
-do_receive(TlsSocket)->
-  dds_endpoint:do_receive(TlsSocket).
 
 %% CONTROL MESSAGE
 on_send(Msg0, Dest, #bacnet_pub{dds = DdsCallbackData0} = CallbackData) ->

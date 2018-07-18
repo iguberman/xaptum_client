@@ -32,7 +32,6 @@
   on_send/2,
   on_send/3,
   on_receive/2,
-  do_receive/1,
   on_connect/2,
   on_reconnect/2,
   on_disconnect/2
@@ -162,11 +161,9 @@ on_receive(<<?DDS_MARKER, ?CONTROL_MSG, Size:16, Payload/binary>> = Msg,
   Size = size(Payload), %% sanity check
   {ok, EndpointData1} = xtt_endpoint:on_receive(Payload, EndpointData0),
   lager:info("Control message ~p received by ~p", [Msg, self()]),
-  {ok, CallbackData#dds{endpoint_data = EndpointData1}}.
-
-
-do_receive(TlsSocket)->
-  ddslib:recv(TlsSocket).
+  {ok, CallbackData#dds{endpoint_data = EndpointData1}};
+on_receive(Unexpected, CallbackData)->
+  lager:error("DDS_ENDPOINT ~p received unexpected message ~p", [Unexpected, CallbackData] ).
 
 on_send(_Msg, #dds{ready = false}) ->
   lager:error("Not ready to send messages or requests ~p! Try again later", []),

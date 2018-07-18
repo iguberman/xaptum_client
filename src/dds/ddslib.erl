@@ -71,10 +71,14 @@ client_hello(Ipv6) ->
 server_hello(Ipv6) ->
   <<?DDS_MARKER, ?DDS_SERVER_HELLO, ?IPV6_SIZE:16, Ipv6:?IPV6_SIZE/bytes>>.
 
+control_request(Message, DestIpv6) when is_list(Message)->
+  control_request(list_to_binary(Message), DestIpv6);
 control_request(Message, DestIpv6) when is_binary(Message)->
   Payload = <<DestIpv6/binary, Message/binary>>,
   dds_payload(Payload, ?CONTROL_MSG).
 
+reg_msg_request(Message) when is_list(Message) ->
+  reg_msg_requet(list_to_binary(Message));
 reg_msg_request(Message) when is_binary(Message) ->
   dds_payload(Message, ?REG_MSG).
 

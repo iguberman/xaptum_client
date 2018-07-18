@@ -20,7 +20,6 @@
 -export([
   auth/4,
   on_receive/3,
-  do_receive/1,
   on_send/2,
   on_send/3,
   on_connect/2,
@@ -35,9 +34,6 @@ auth(XttServerHost, XttServerPort, Creds, CallbackData)->
 %% TODOs
 on_receive(_Arg0, _Arg1, _Arg2) ->
   erlang:error(not_implemented).
-
-do_receive(TlsSocket) ->
-  xtt_endpoing:do_receive(TlsSocket).
 
 on_send(Msg, Dest, CallbackData) ->
   xtt_endpoint:on_send(Msg, Dest, CallbackData).

@@ -24,7 +24,6 @@
 -export([
   auth/3,
   on_receive/2,
-  do_receive/1,
   on_send/2,
   on_send/3,
   on_connect/2,
@@ -60,9 +59,6 @@ auth(#hosts_config{xaptum_host = XttServerHost, xtt_port = XttServerPort},
 on_receive(Msg, #endpoint{num_received = NumReceived} = CallbackData)->
   lager:debug("Calling ~p:on_receive", [?MODULE]),
   {ok, CallbackData#endpoint{num_received = NumReceived + 1, msg = Msg}}.
-
-do_receive(TlsSocket)->
-  erltls:recv(TlsSocket, 0).
 
 on_send(Msg, _Dest, #endpoint{num_received = NumSent} = CallbackData) ->
   {ok, Msg, CallbackData#endpoint{num_sent = NumSent + 1}}.

@@ -10,7 +10,6 @@
 -export([
   auth/3,
   on_receive/2,
-  do_receive/1,
   on_send/2,
   on_send/3,
   on_connect/2,
@@ -75,9 +74,6 @@ on_receive(Msg,
   %% Now Send the ACK to control
   xaptum_endpoint:send_message(self(), BacnetAck),
   {ok, CallbackData0#bacnet_pub{dds = DdsCallbackData1, udp_recv = UdpRecv + 1, udp_sent = UdpSent + 1 }}.
-
-do_receive(TlsSocket)->
-  dds_endpoint:do_receive(TlsSocket).
 
 on_send(Msg0, Dest, #bacnet_pub{dds = DdsCallbackData0} = CallbackData) ->
   {ok, Msg1, DdsCallbackData1} = dds_endpoint:on_send(Msg0, Dest, DdsCallbackData0),
