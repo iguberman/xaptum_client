@@ -89,13 +89,12 @@ test_sub(Config)->
   Queues = application:get_env(xaptum_client, dds_queues, ["$rr:0"]),
   {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues, {?REMOTE_IP2, ?REMOTE_PORT2}),
   {ok, true} = dds_endpoint:wait_for_endpoint_ready(Sub),
-  lager:
 
   test_sub_send_message(Sub, "Hello from sub!", 1),
   timer:sleep(100),
-  test_pub_send_message(Sub, "Message 1 from sub!", 2),
+  test_sub_send_message(Sub, "Message 1 from sub!", 2),
   timer:sleep(100),
-  test_pub_send_message(Sub, "Message 2 from sub!", 3),
+  test_sub_send_message(Sub, "Message 2 from sub!", 3),
   timer:sleep(100),
 
   timer:sleep(5000),
