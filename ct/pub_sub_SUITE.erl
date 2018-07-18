@@ -49,7 +49,7 @@ all() -> [
 ].
 
 groups() -> [
-  {simple, [sequence], [test_pub, test_sub]}
+  {simple, [sequence], [test_pub, test_sub, test_pub_sub]}
 ].
 
 %%all() -> [test_pub, test_sub].
