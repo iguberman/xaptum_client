@@ -160,8 +160,7 @@ handle_cast(maybe_reconnect, #state{
       lager:info("RECONNECTING... closed ~p and opened ~p", [MaybeExistingTlsSocket, NewTlsSocket]),
       {ok, CallbackData1} = CallbackModule:on_reconnect(NewTlsSocket, CallbackData0)
   end,
-  lager:info("MAYBE reconnect successful, start_receiving..."),
-  start_receiving(self()),
+  lager:info("MAYBE reconnect successful!"),
   {noreply, State#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
 
 handle_cast({send_message, Payload, Dest}, #state{
