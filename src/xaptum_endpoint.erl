@@ -227,7 +227,7 @@ terminate(_Reason, #state{tls_socket = undefined}) ->
 terminate(_Reason, #state{tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket,
   callback_module = CallbackModule, callback_data = CallbackData0}) when is_port(TcpSocket), is_pid(SslPid) ->
   erltls:close(TlsSocket),
-  {ok, _CallbackData1} = CallbackModule:on_disconnect(CallbackData0),
+  {ok, _CallbackData1} = CallbackModule:on_disconnect(TlsSocket, CallbackData0),
   ok.
 
 code_change(_OldVsn, State, _Extra) ->
