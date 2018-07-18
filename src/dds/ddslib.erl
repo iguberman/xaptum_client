@@ -84,7 +84,7 @@ reg_msg_request(Message) when is_binary(Message) ->
 
 subscribe_request(Queue)->
   lager:info("Creating sub request from queue ~p", [Queue]),
-  Payload = <<Queue/binary>>,
+  Payload = list_to_binary(Queue),
   dds_payload(Payload, ?SUB_REQ).
 
 dds_payload(Payload, Type) when is_integer(Type), is_binary(Payload) ->
