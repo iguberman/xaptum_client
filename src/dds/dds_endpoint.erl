@@ -98,7 +98,7 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
 
   lager:info("Got Token from XCR: ~p", [Token]),
 
-  CurlCmd = "curl -s -X POST -H \"Content-Type: application/json Authorization: Bearer \"" ++ Token
+  CurlCmd = "curl -s -X POST -H \"Content-Type: application/json Authorization: Bearer \"" ++ binary_to_list(Token)
     ++ "\" -d '{ \"subnet\" : \"" ++ SubnetStr ++ "/64\", \"pub_key\" : \""
     ++ PkBase64Enc ++ "\" }' http://" ++ XcrHost ++ ":" ++ integer_to_list(XcrPort) ++ "/api/xcr/v2/ephook",
 
