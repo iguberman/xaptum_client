@@ -78,7 +78,7 @@ control_request(Message, DestIpv6) when is_binary(Message)->
   dds_payload(Payload, ?CONTROL_MSG).
 
 reg_msg_request(Message) when is_list(Message) ->
-  reg_msg_requet(list_to_binary(Message));
+  reg_msg_request(list_to_binary(Message));
 reg_msg_request(Message) when is_binary(Message) ->
   dds_payload(Message, ?REG_MSG).
 
