@@ -132,12 +132,8 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
 on_connect(TlsSocket, #dds{endpoint_data = #endpoint{ipv6 = Ipv6, remote_ip = RemoteIp, remote_port = RemotePort} = EndpointData0} = CallbackData) ->
   case send_client_hello(TlsSocket, Ipv6) of
     ok ->
-      case receive_server_hello(TlsSocket, Ipv6) of
-        ok ->
-          {ok, EndpointData1} = xtt_endpoint:on_connect(TlsSocket, EndpointData0),
-          {ok, CallbackData#dds{ready = true, endpoint_data = EndpointData1}};
-        {error, _Error} -> {error, server_hello_error}
-      end;
+      {ok, EndpointData1} = xtt_endpoint:on_connect(TlsSocket, EndpointData0),
+      {ok, CallbackData#dds{endpoint_data = EndpointData1}};
     {error, _Error} -> {error, client_hello_error}
   end.
 
@@ -210,20 +206,4 @@ send_client_hello(TlsSocket, Ipv6) ->
     {error, Error} ->
       lager:error("Failed to send client hello ~p due to error ~p", [PubClientHello, Error]),
       {error, {tls_error, Error}}
-  end.
-
-receive_server_hello(TlsSocket, Ipv6) ->
-  lager:info("Receiving server hello from TlsSocket ~p", [TlsSocket]),
-  ExpectedMessage = ddslib:server_hello(Ipv6),
-  case erltls:recv(TlsSocket, size(ExpectedMessage), ?SERVER_HELLO_TIMEOUT) of
-    {ok, ExpectedMessage} ->
-      lager:info("Received server hello ~p", [ExpectedMessage]),
-      erltls:setopts(TlsSocket, [{active, once}]),
-      ok;
-    {ok, UnexpectedMessage} ->
-      lager:warning("Received ~p instead of expected server hello ~p", [UnexpectedMessage, ExpectedMessage]),
-      {error, {unexpected_message, UnexpectedMessage}};
-    {error, Error} ->
-      lager:error("Error ~p while receiving server hello ~p", [Error, ExpectedMessage]),
-      {error, Error}
   end.
