@@ -84,7 +84,7 @@ received(EndpointPid, Msg)->
   gen_server:cast(EndpointPid, {received, Msg}).
 
 get_data(EndpointPid)->
-  gen_server:call(EndpointPid, get_data).
+  gen_server:call(EndpointPid, get_data, 30000).
 
 ssl_error(EndpointPid, Error) ->
   gen_server:cast(EndpointPid, {ssl_error, Error}).
