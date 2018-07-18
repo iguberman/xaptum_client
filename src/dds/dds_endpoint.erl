@@ -217,7 +217,9 @@ receive_server_hello(TlsSocket, Ipv6) ->
   ExpectedMessage = ddslib:server_hello(Ipv6),
   case erltls:recv(TlsSocket, size(ExpectedMessage), ?SERVER_HELLO_TIMEOUT) of
     {ok, ExpectedMessage} ->
-      lager:info("Received server hello ~p", [ExpectedMessage]), ok;
+      lager:info("Received server hello ~p", [ExpectedMessage]),
+      erltls:setopts(TlsSocket, [{active, once}]),
+      ok;
     {ok, UnexpectedMessage} ->
       lager:warning("Received ~p instead of expected server hello ~p", [UnexpectedMessage, ExpectedMessage]),
       {error, {unexpected_message, UnexpectedMessage}};

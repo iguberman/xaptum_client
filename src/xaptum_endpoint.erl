@@ -19,9 +19,6 @@
   send_message/2,
   send_message/3,
   send_request/2,
-  start_receiving/1,
-  received/2,
-  receive_loop/3,
   get_data/1,
   ssl_error/2,
   connect/1,
@@ -43,8 +40,7 @@
   hosts_config,
   xaptum_host, xtt_port, tls_port,
   ipv6, pseudonym, cert, key, tls_socket,
-  callback_data, callback_module,
-  receiver_pid}).
+  callback_data, callback_module}).
 
 
 -callback auth(HostsConfig :: tuple(), Inputs :: term(), CallbackData :: any())->
@@ -76,12 +72,6 @@ send_message(EndpointPid, Msg, Dest)->
 
 send_message(EndpointPid, Msg)->
   gen_server:cast(EndpointPid, {send_message, Msg}).
-
-start_receiving(EndpointPid)->
-  gen_server:cast(EndpointPid, start_receiving).
-
-received(EndpointPid, Msg)->
-  gen_server:cast(EndpointPid, {received, Msg}).
 
 get_data(EndpointPid)->
   gen_server:call(EndpointPid, get_data, 30000).
@@ -136,9 +126,10 @@ handle_cast(maybe_connect, #state{ tls_socket = #tlssocket{tcp_sock = TcpSocket,
   callback_module = CallbackModule, callback_data = CallbackData0} = State) when is_port(TcpSocket), is_pid(SslPid) ->
   case CallbackModule:on_connect(ExistingTlsSocket, CallbackData0) of
     {ok, CallbackData1} ->
-        start_receiving(self()),
+      lager:info("on_connect success, resulting callback data ~p", [CallbackData1]),
       {noreply, State#state{callback_data = CallbackData1}};
     {error, Error} ->
+      lager:error("Connect failure due to error ~p", [Error]),
       {stop, {error, Error}, State}
   end;
 
@@ -147,8 +138,7 @@ handle_cast(maybe_connect, #state{ tls_socket = undefined,
   case do_tls_connect(State) of
     {ok, #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket} when is_pid(SslPid), is_port(TcpSocket)->
       {ok, CallbackData1} = CallbackModule:on_connect(TlsSocket, CallbackData0),
-      lager:info("on_connect succcess, resulting callback data ~p", [CallbackData1]),
-      start_receiving(self()),
+      lager:info("on_connect success, resulting callback data ~p", [CallbackData1]),
       {noreply, State#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
     Other ->
       lager:error("Couldn't tls connect, result: ~p", Other),
@@ -214,32 +204,23 @@ handle_cast({send_request, Request}, #state{
       {stop, {tls_error, Error}, State}
   end;
 
-%% Handle {active, false} mode
-handle_cast(start_receiving, #state{
-    tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket,
-    callback_module = CallbackModule, callback_data = CallbackData} = State)
-    when is_port(TcpSocket), is_pid(SslPid) ->
-  EndpointPid = self(),
-  lager:info("Spawning receive_loop with args: ~p, ~p, ~p", [TlsSocket, EndpointPid, CallbackModule]),
-  ReceiverPid = spawn_link(?MODULE, receive_loop, [TlsSocket, EndpointPid, CallbackModule]),
-  {noreply, State#state{receiver_pid = ReceiverPid, callback_data = CallbackData}};
-
-handle_cast({received, Msg}, #state{callback_module = CallbackModule, callback_data = CallbackData} = State) ->
-  CallbackModule:on_receive(Msg, CallbackData);
-
 handle_cast({ssl_error, _Error}, #state{tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket} = State)
     when is_port(TcpSocket), is_pid(SslPid) ->
     erltls:close(TlsSocket),
     connect(self()),
   {noreply, State}.
 
-%% Handle {active, [once|N]} mode -- TODO maybe remove as there is less control over how messages are received
 handle_info({ssl, TlsSocket, Msg}, #state{tls_socket = TlsSocket, callback_module = CallbackModule, callback_data = CallbackData0} = State) ->
   {ok, CallbackData1} = CallbackModule:on_receive(Msg, CallbackData0),
+  erltls:setopts(TlsSocket, [{active, once}]),
   {noreply, State#state{callback_data = CallbackData1}};
-handle_info({ssl_error, TlsSocket, _Error}, #state{tls_socket = TlsSocket} = State)->
+handle_info({ssl_error, TlsSocket, Error}, #state{tls_socket = TlsSocket} = State)->
+  lager:warning("ssl_error ~p, closing TLS socket ~p and reconnecting", [Error, TlsSocket]),
   erltls:close(TlsSocket),
   connect(self()),
+  {noreply, State};
+handle_info(UnexpectedInfo, State)->
+  lager:warning("UnexpectedInfo ~p", [UnexpectedInfo]),
   {noreply, State}.
 
 terminate(_Reason, #state{tls_socket = undefined}) ->
@@ -262,7 +243,7 @@ do_tls_connect(#state{
   cert = Cert, key = Key}) when is_binary(Cert), is_binary(Key) ->
   erltls:connect(XaptumHost, TlsPort,
     [binary,
-      {active, false},
+      {active, once},
       {reuseaddr, true},
       {packet, 0},
       {keepalive, true},
@@ -273,13 +254,13 @@ do_tls_connect(#state{
       {key, Key}
     ],2000).
 
-receive_loop(TlsSocket, EndpointPid, CallbackModule) ->
-  lager:debug("receive_loop(~p, ~p, ~p)", [TlsSocket, EndpointPid, CallbackModule]),
-  case CallbackModule:do_receive(TlsSocket) of
-    {ok, Msg} ->
-      lager:info("Received ~p", [Msg]),
-      xaptum_endpoint:received(Msg, EndpointPid),
-      receive_loop(TlsSocket, EndpointPid, CallbackModule);
-    {error, Error} ->
-      xaptum_endpoint:ssl_error(EndpointPid, Error)
-  end.
+%%receive_loop(TlsSocket, EndpointPid, CallbackModule) ->
+%%  lager:debug("receive_loop(~p, ~p, ~p)", [TlsSocket, EndpointPid, CallbackModule]),
+%%  case CallbackModule:do_receive(TlsSocket) of
+%%    {ok, Msg} ->
+%%      lager:info("Received ~p", [Msg]),
+%%      xaptum_endpoint:received(Msg, EndpointPid),
+%%      receive_loop(TlsSocket, EndpointPid, CallbackModule);
+%%    {error, Error} ->
+%%      xaptum_endpoint:ssl_error(EndpointPid, Error)
+%%  end.
