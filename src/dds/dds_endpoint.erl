@@ -179,11 +179,13 @@ on_send(_Msg, #dds{ready = false}) ->
 on_send(Msg0, #dds{endpoint_data = EndpointData0, ready = true} = CallbackData) ->
   {ok, Msg1, EndpointData1} = xtt_endpoint:on_send(Msg0, EndpointData0),
   Msg2 = ddslib:reg_msg_request(Msg1),
+  lager:debug("Generated REG_MSG request ~p", [Msg2]),
   {ok, Msg2, CallbackData#dds{endpoint_data = EndpointData1} }.
 
 on_send(Msg0, Dest, #dds{ready = true, endpoint_data = EndpointData0} = CallbackData) ->
   {ok, Msg1, EndpointData1} = xtt_endpoint:on_send(Msg0, Dest, EndpointData0),
   Msg2 = ddslib:control_request(Dest, Msg1),
+  lager:debug("Generated CONTROL request ~p", [Msg2]),
   {ok, Msg2, CallbackData#dds{endpoint_data = EndpointData1} };
 on_send(_Msg, _Dest, #dds{ready = false}) ->
   lager:error("Not ready to send messages ~p! Try again later", []),
