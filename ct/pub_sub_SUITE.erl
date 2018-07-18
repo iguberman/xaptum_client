@@ -104,17 +104,19 @@ test_sub(Config)->
 test_pub_sub(Config) ->
   {NewConfig, PubFileCreds} = init_file_creds(Config, ?XTT_CRED_DIR2),
 
-  {ok, Queues} = application:get_env(xaptum_client, dds_queues),
+  Queues = application:get_env(xaptum_client, dds_queues, ["$rr:0"]),
   {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues, {?REMOTE_IP1, ?REMOTE_PORT1}),
   {ok, true} = dds_endpoint:wait_for_endpoint_ready(Sub),
 
   {ok, Pub} = dds_endpoint:start(PubFileCreds, {?REMOTE_IP2, ?REMOTE_PORT2}),
   {ok, true} = dds_endpoint:wait_for_endpoint_ready(Pub),
 
+  #dds{endpoint_data = #endpoint{ipv6 = Ipv6, num_sent = SendSequence}} = xaptum_endpoint:get_data(Pub),
+
   test_pub_send_message(Pub, "Hello from pub!", 1),
   test_sub_recv_message(Sub, 1),
 
-  test_sub_send_message(Sub, "Signal from sub!", 1),
+  test_sub_send_message(Sub, "Signal from sub!", Ipv6, 1),
   test_pub_recv_message(Pub, 1),
 
   ct:print("New config: ~p~n", [NewConfig]),
@@ -132,6 +134,11 @@ test_pub_send_message(PubPid, Message, SendSequence)->
 
 test_sub_send_message(SubPid, Message, SendSequence)->
   xaptum_endpoint:send_message(SubPid, Message),
+  SubData = xaptum_endpoint:get_data(SubPid),
+  #dds{endpoint_data = #endpoint{num_sent = SendSequence}} = SubData.
+
+test_sub_send_message(SubPid, Message, Dest, SendSequence)->
+  xaptum_endpoint:send_message(SubPid, Message, Dest),
   SubData = xaptum_endpoint:get_data(SubPid),
   #dds{endpoint_data = #endpoint{num_sent = SendSequence}} = SubData.
 
