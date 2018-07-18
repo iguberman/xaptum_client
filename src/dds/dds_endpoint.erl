@@ -153,6 +153,7 @@ on_disconnect(_TlsSocket, CallbackData) ->
 on_receive(<<?DDS_MARKER, ?DDS_SERVER_HELLO, ?IPV6_SIZE:16, Ipv6:?IPV6_SIZE/bytes>>,
     #dds{sub_queues = Queues, endpoint_data = #endpoint{ipv6 = Ipv6}} = CallbackData)->
   lager:info("SERVER HELLO received by ~p", [Ipv6]),
+  lager:info("Generating sub requests for queues ~p", [Queues]),
   [send_subscribe_request(Queue) || Queue <- Queues],
   {ok, CallbackData#dds{ready = true}};
 on_receive(<<?DDS_MARKER, ReqType, _Size:16, _Payload/binary>>,
