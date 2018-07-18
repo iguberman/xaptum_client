@@ -91,7 +91,10 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
 
   lager:info("Executing get token cmd: ~n~p", [GetTokenCmd]),
 
-  Token = os:cmd(GetTokenCmd),
+  jsx:maps_support(),
+  TokenJson = os:cmd(GetTokenCmd),
+  TokenJsonDecoded = jsx:decode(list_to_binary(TokenJson), [return_maps]),
+  #{<<"data">> := [#{<<"token">> := Token}]} = TokenJsonDecoded,
 
   lager:info("Got Token from XCR: ~p", [Token]),
 
@@ -108,7 +111,7 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
 %% "page":{"curr":-1,"next":-1,"prev":-1}}
 
   JsonResp = os:cmd(CurlCmd),
-  jsx:maps_support(),
+
   DecodedResp = jsx:decode(list_to_binary(JsonResp), [return_maps]),
   lager:info("Decoded curl resp: ~p", [DecodedResp]),
 
