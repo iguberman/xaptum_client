@@ -56,7 +56,7 @@ wait_for_endpoint_ready(_EndpointPid, false, Timeout) when Timeout =< 0->
 wait_for_endpoint_ready(EndpointPid, false, Timeout) ->
   timer:sleep(100),
   #dds{ready = Ready} = DdsEndpoint = xaptum_endpoint:get_data(EndpointPid),
-  lager:debug("Waiting for DdsEndpoint ready... ", [DdsEndpoint]),
+  lager:debug("Waiting for DdsEndpoint ready ~p... ", [DdsEndpoint]),
   wait_for_endpoint_ready(EndpointPid, Ready, Timeout - 100);
 wait_for_endpoint_ready(_EndpointPid, true, _Timeout) ->
   {ok, true}.
@@ -182,7 +182,7 @@ on_send(Msg0, #dds{endpoint_data = EndpointData0, ready = true} = CallbackData) 
 
 on_send(Msg0, Dest, #dds{ready = true, endpoint_data = EndpointData0} = CallbackData) ->
   {ok, Msg1, EndpointData1} = xtt_endpoint:on_send(Msg0, Dest, EndpointData0),
-  Msg2 = ddslib:control_request(Dest, Msg1),
+  Msg2 = ddslib:control_request(Msg1, Dest),
   lager:debug("Generated CONTROL request ~p", [Msg2]),
   {ok, Msg2, CallbackData#dds{endpoint_data = EndpointData1} };
 on_send(_Msg, _Dest, #dds{ready = false}) ->
