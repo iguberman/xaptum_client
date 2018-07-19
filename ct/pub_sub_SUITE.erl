@@ -151,6 +151,7 @@ test_sub_send_message(SubPid, Message, SendSequence)->
 test_sub_send_message(SubPid, Message, Dest, SendSequence)->
   xaptum_endpoint:send_message(SubPid, Message, Dest),
   SubData = xaptum_endpoint:get_data(SubPid),
+  lager:info("Epecting num_sent ~p, data ~p", [SendSequence, SubData]),
   #dds{endpoint_data = #endpoint{num_sent = SendSequence}} = SubData.
 
 test_pub_recv_message(PubPid, RecvSequence)->
