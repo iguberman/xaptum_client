@@ -135,7 +135,7 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
 
   lager:info("Resulting tls_creds: ~p", [TlsCreds]),
 
-  lager:info("************* SUB AUTH complete ~p (~p)***************", [Ipv6, convert_to_Ipv6Str(Ipv6)]),
+  lager:info("************* SUB AUTH complete ~p (~p)***************", [Identity, convert_to_Ipv6Str(Identity)]),
 
   timer:sleep(2000),
 

@@ -107,13 +107,13 @@ test_sub(Config)->
 test_pub_sub(Config) ->
   {NewConfig, PubFileCreds} = init_file_creds(Config, ?XTT_CRED_DIR2),
 
-  timer:sleep(10000),
+  timer:sleep(5000),
 
   Queues = application:get_env(xaptum_client, dds_queues, ["$rr:0"]),
   {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues, {?REMOTE_IP1, ?REMOTE_PORT1}),
   {ok, true} = dds_endpoint:wait_for_endpoint_ready(Sub),
 
-  timer:sleep(10000),
+  timer:sleep(5000),
   {ok, Pub} = dds_endpoint:start(PubFileCreds, {?REMOTE_IP2, ?REMOTE_PORT2}),
   {ok, true} = dds_endpoint:wait_for_endpoint_ready(Pub),
 
@@ -140,28 +140,32 @@ test_pub_sub(Config) ->
 
 test_pub_send_message(PubPid, Message, SendSequence)->
   xaptum_endpoint:send_message(PubPid, Message),
-  PubData = xaptum_endpoint:get_data(PubPid),
+  #dds{endpoint_data = #endpoint{ipv6 = Ipv6, num_sent = NumSent}} = PubData = xaptum_endpoint:get_data(PubPid),
+  lager:info("Pub ~p expecting num_sent ~p, actual ~p", [Ipv6, SendSequence, NumSent]),
   #dds{endpoint_data = #endpoint{num_sent = SendSequence}} = PubData.
 
 test_sub_send_message(SubPid, Message, SendSequence)->
   xaptum_endpoint:send_message(SubPid, Message),
-  SubData = xaptum_endpoint:get_data(SubPid),
+  #dds{endpoint_data = #endpoint{ipv6 = Ipv6, num_sent = NumSent}} = SubData = xaptum_endpoint:get_data(SubPid),
+  lager:info("Sub ~p expecting num_sent ~p, actual ~p", [Ipv6, SendSequence, NumSent]),
   #dds{endpoint_data = #endpoint{num_sent = SendSequence}} = SubData.
 
 test_sub_send_message(SubPid, Message, Dest, SendSequence)->
   xaptum_endpoint:send_message(SubPid, Message, Dest),
-  SubData = xaptum_endpoint:get_data(SubPid),
-  lager:info("Epecting num_sent ~p, data ~p", [SendSequence, SubData]),
+  #dds{endpoint_data = #endpoint{ipv6 = Ipv6, num_sent = NumSent}} = SubData = xaptum_endpoint:get_data(SubPid),
+  lager:info("Sub ~p expecting num_sent ~p, actual ~p", [Ipv6, SendSequence, NumSent]),
   #dds{endpoint_data = #endpoint{num_sent = SendSequence}} = SubData.
 
 test_pub_recv_message(PubPid, RecvSequence)->
   timer:sleep(?MESSAGE_LATENCY),
-  PubData = xaptum_endpoint:get_data(PubPid),
+  #dds{endpoint_data = #endpoint{ipv6 = Ipv6, num_received = NumRecv}} = PubData = xaptum_endpoint:get_data(PubPid),
+  lager:info("Pub ~p expecting num received ~p, actual ~p", [Ipv6, RecvSequence, NumRecv]),
   #dds{endpoint_data = #endpoint{num_received = RecvSequence}} = PubData.
 
 test_sub_recv_message(SubPid, RecvSequence)->
   timer:sleep(?MESSAGE_LATENCY),
-  SubData = xaptum_endpoint:get_data(SubPid),
+  #dds{endpoint_data = #endpoint{ipv6 = Ipv6, num_received = NumRecv}} = SubData = xaptum_endpoint:get_data(SubPid),
+  lager:info("Sub ~p epecting num received ~p, actual ~p", [Ipv6, RecvSequence, NumRecv]),
   #dds{endpoint_data = #endpoint{num_received = RecvSequence}} = SubData.
 
 init_file_creds(Config, MemberDir)->
