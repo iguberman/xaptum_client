@@ -19,6 +19,8 @@ xaptum_host()->
   xaptum_host(XaptumCluster).
 
 xaptum_host(XaptumCluster)->
-  lists:nth(rand:uniform(length(XaptumCluster)), XaptumCluster).
+  Host = lists:nth(rand:uniform(length(XaptumCluster)), XaptumCluster),
+  lager:debug("Chose host ~p from ~p", [Host, XaptumCluster]),
+  Host.
 
 
