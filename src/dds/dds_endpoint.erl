@@ -55,7 +55,8 @@ wait_for_endpoint_ready(_EndpointPid, false, Timeout) when Timeout =< 0->
   {error, timeout};
 wait_for_endpoint_ready(EndpointPid, false, Timeout) ->
   timer:sleep(100),
-  #dds{ready = Ready} = xaptum_endpoint:get_data(EndpointPid),
+  #dds{ready = Ready} = DdsEndpoint = xaptum_endpoint:get_data(EndpointPid),
+  lager:debug("Waiting for DdsEndpoint ready... ", [DdsEndpoint]),
   wait_for_endpoint_ready(EndpointPid, Ready, Timeout - 100);
 wait_for_endpoint_ready(_EndpointPid, true, _Timeout) ->
   {ok, true}.

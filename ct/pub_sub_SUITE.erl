@@ -9,6 +9,9 @@
 -module(pub_sub_SUITE).
 -author("iguberman").
 
+
+-compile([{parse_transform, lager_transform}]).
+
 %% API
 -export([all/0, groups/0, init_per_suite/1, end_per_suite/1]).
 -export([test_pub/1, test_sub/1, test_pub_sub/1]).
@@ -49,7 +52,7 @@ all() -> [
 ].
 
 groups() -> [
-  {simple, [sequence], [test_pub, test_pub_sub]}
+  {simple, [sequence], [test_pub_sub]}
 ].
 
 %%all() -> [test_pub, test_sub].
@@ -110,7 +113,7 @@ test_pub_sub(Config) ->
   {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues, {?REMOTE_IP1, ?REMOTE_PORT1}),
   {ok, true} = dds_endpoint:wait_for_endpoint_ready(Sub),
 
-  timer:sleep(5000),
+  timer:sleep(10000),
   {ok, Pub} = dds_endpoint:start(PubFileCreds, {?REMOTE_IP2, ?REMOTE_PORT2}),
   {ok, true} = dds_endpoint:wait_for_endpoint_ready(Pub),
 
