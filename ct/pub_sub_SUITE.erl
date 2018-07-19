@@ -110,7 +110,7 @@ test_pub_sub(Config) ->
   {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues, {?REMOTE_IP1, ?REMOTE_PORT1}),
   {ok, true} = dds_endpoint:wait_for_endpoint_ready(Sub),
 
-  timer:sleep(5000).
+  timer:sleep(5000),
   {ok, Pub} = dds_endpoint:start(PubFileCreds, {?REMOTE_IP2, ?REMOTE_PORT2}),
   {ok, true} = dds_endpoint:wait_for_endpoint_ready(Pub),
 
