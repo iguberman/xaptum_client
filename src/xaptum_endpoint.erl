@@ -37,7 +37,7 @@
 -define(SERVER, ?MODULE).
 
 -record(state, {
-  hosts_config, xtt_port, tls_port,
+  hosts_config,
   ipv6, pseudonym, cert, key, tls_socket,
   callback_data, callback_module}).
 
@@ -131,7 +131,9 @@ handle_cast(maybe_connect, #state{ tls_socket = #tlssocket{tcp_sock = TcpSocket,
       {stop, {error, Error}, State}
   end;
 
-handle_cast(maybe_connect, #state{ tls_socket = undefined, tls_port = TlsPort, cert = Cert, key = Key,
+handle_cast(maybe_connect, #state{ tls_socket = undefined,
+  hosts_config = #hosts_config{tls_port = TlsPort},
+  cert = Cert, key = Key,
   callback_module = CallbackModule, callback_data = CallbackData0} = State0)->
   case do_tls_connect(TlsPort, Cert, Key) of
     {ok, #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket} when is_pid(SslPid), is_port(TcpSocket)->
@@ -146,7 +148,8 @@ handle_cast(maybe_connect, #state{ tls_socket = undefined, tls_port = TlsPort, c
 
 %% Connect if not connected, force reconnect if it is
 handle_cast(maybe_reconnect, #state{
-  tls_socket = MaybeExistingTlsSocket, tls_port = TlsPort, cert = Cert, key = Key,
+  hosts_config = #hosts_config{tls_port = TlsPort},
+  tls_socket = MaybeExistingTlsSocket, cert = Cert, key = Key,
   callback_module = CallbackModule, callback_data = CallbackData0} = State) ->
   {ok, TlsSocket} = do_tls_connect(TlsPort, Cert, Key),
   case MaybeExistingTlsSocket of
