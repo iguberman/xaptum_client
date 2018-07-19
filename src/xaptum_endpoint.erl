@@ -37,8 +37,7 @@
 -define(SERVER, ?MODULE).
 
 -record(state, {
-  hosts_config,
-  xaptum_host, xtt_port, tls_port,
+  hosts_config, xtt_port, tls_port,
   ipv6, pseudonym, cert, key, tls_socket,
   callback_data, callback_module}).
 
@@ -132,24 +131,24 @@ handle_cast(maybe_connect, #state{ tls_socket = #tlssocket{tcp_sock = TcpSocket,
       {stop, {error, Error}, State}
   end;
 
-handle_cast(maybe_connect, #state{ tls_socket = undefined,
-  callback_module = CallbackModule, callback_data = CallbackData0} = State)->
-  case do_tls_connect(State) of
+handle_cast(maybe_connect, #state{ tls_socket = undefined, tls_port = TlsPort, cert = Cert, key = Key,
+  callback_module = CallbackModule, callback_data = CallbackData0} = State0)->
+  case do_tls_connect(TlsPort, Cert, Key) of
     {ok, #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket} when is_pid(SslPid), is_port(TcpSocket)->
       {ok, CallbackData1} = CallbackModule:on_connect(TlsSocket, CallbackData0),
       lager:info("on_connect success, resulting callback data ~p", [CallbackData1]),
-      {noreply, State#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
+      {noreply, State0#state{tls_socket = TlsSocket, callback_data = CallbackData1}};
     Other ->
       lager:error("Couldn't tls connect, result: ~p", Other),
-      {stop, {error, tls_connect_error}, State}
+      {stop, {error, tls_connect_error}, State0}
   end;
 
 
 %% Connect if not connected, force reconnect if it is
 handle_cast(maybe_reconnect, #state{
-  tls_socket = MaybeExistingTlsSocket,
+  tls_socket = MaybeExistingTlsSocket, tls_port = TlsPort, cert = Cert, key = Key,
   callback_module = CallbackModule, callback_data = CallbackData0} = State) ->
-  {ok, TlsSocket} = do_tls_connect(State),
+  {ok, TlsSocket} = do_tls_connect(TlsPort, Cert, Key),
   case MaybeExistingTlsSocket of
     undefined -> %% this WAS NOT a REconnect
       lager:info("CONNECTED to ~p", [TlsSocket]),
@@ -170,7 +169,7 @@ handle_cast({send_message, Payload, Dest}, #state{
     {error, retry_later} -> {noreply, CallbackData0};
     {ok, Message, CallbackData1} ->
       ok = erltls:send(TlsSocket, Message),
-      lager:info("Sent message ~p to ~p", [Message, Dest]),
+      lager:info("Sent message ~p to destination ~p", [Message, Dest]),
       {noreply, State#state{callback_data = CallbackData1}}
   end;
 handle_cast({send_message, Payload}, #state{
@@ -185,7 +184,7 @@ handle_cast({send_message, Payload}, #state{
       {noreply, CallbackData0};
     {ok, Message, CallbackData1} ->
       ok = erltls:send(TlsSocket, Message),
-      lager:info("Sent message ~p to ~p", [Message]),
+      lager:info("Published message ~p", [Message]),
       {noreply, State#state{callback_data = CallbackData1}}
   end;
 handle_cast({send_message, Payload}, State)->
@@ -236,9 +235,9 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-do_tls_connect(#state{
-  hosts_config = #hosts_config{xaptum_host = XaptumHost, tls_port = TlsPort},
-  cert = Cert, key = Key}) when is_binary(Cert), is_binary(Key) ->
+do_tls_connect(TlsPort, Cert, Key) when is_binary(Cert), is_binary(Key) ->
+  XaptumHost = dist_utils:xaptum_host(),
+  lager:debug("Connecting to host ~p", [XaptumHost]),
   erltls:connect(XaptumHost, TlsPort,
     [binary,
       {active, once},

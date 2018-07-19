@@ -119,10 +119,15 @@ test_pub_sub(Config) ->
 
   #dds{endpoint_data = #endpoint{ipv6 = Ipv6, num_sent = SendSequence}} = xaptum_endpoint:get_data(Pub),
 
-  test_pub_send_message(Pub, "Hello from pub!", 1),
+  RegMessage = "Hello from pub!",
+  test_pub_send_message(Pub, RegMessage, 1),
   test_sub_recv_message(Sub, 1),
 
-  test_sub_send_message(Sub, "Signal from sub!", Ipv6, 1),
+  Signal = "Signal from sub!",
+  lager:info("Sending signal ~p to ~p", [Signal, Ipv6]),
+
+  test_sub_send_message(Sub, Signal, Ipv6, 1),
+
   test_pub_recv_message(Pub, 1),
 
   ct:print("New config: ~p~n", [NewConfig]),

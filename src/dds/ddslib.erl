@@ -73,7 +73,7 @@ server_hello(Ipv6) ->
 
 control_request(Message, DestIpv6) when is_list(Message)->
   control_request(list_to_binary(Message), DestIpv6);
-control_request(Message, DestIpv6) when is_binary(Message)->
+control_request(Message, DestIpv6) when is_binary(DestIpv6), is_binary(Message)->
   Payload = <<DestIpv6:16/binary, Message/binary>>,
   dds_payload(Payload, ?CONTROL_MSG).
 
