@@ -69,8 +69,13 @@ wait_for_endpoint_ready(_EndpointPid, true, _Timeout) ->
 %% NOTE: this is TLS auth (not dds AUTH which no longer exists)
 auth(#hosts_config{xaptum_host = _XttServerHost, xtt_port = _XttServerPort} = HostsConfig,
     Inputs, #dds{sub_queues = [], endpoint_data = EndpointData0} = CallbackData) ->
-  {ok, TlsCreds, EndpointData1} =
+  {ok, TlsCreds, #endpoint{ipv6 = Ipv6} =  EndpointData1} =
     xtt_endpoint:auth(HostsConfig, Inputs, EndpointData0),
+
+  lager:info("************* XTT AUTH complete ~p (~p)***************", [Ipv6, convert_to_Ipv6Str(Ipv6)]),
+
+  timer:sleep(2000),
+
   {ok, TlsCreds, CallbackData#dds{endpoint_data = EndpointData1}};
 
 %% This is a subscribing endpoint so assume normal enacl auth
@@ -129,6 +134,10 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
   TlsCreds = #tls_creds{key = PrivKeyAsn1, cert = CertAsn1, identity = Identity},
 
   lager:info("Resulting tls_creds: ~p", [TlsCreds]),
+
+  lager:info("************* SUB AUTH complete ~p (~p)***************", [Ipv6, convert_to_Ipv6Str(Ipv6)]),
+
+  timer:sleep(2000),
 
   {ok, TlsCreds, CallbackData#dds{endpoint_data = EndpointData#endpoint{ipv6 = Identity}}}.
 
@@ -209,3 +218,7 @@ send_client_hello(TlsSocket, Ipv6) ->
       lager:error("Failed to send client hello ~p due to error ~p", [PubClientHello, Error]),
       {error, {tls_error, Error}}
   end.
+
+convert_to_Ipv6Str(Ipv6Bytes)->
+  <<IP1:16,IP2:16,IP3:16,IP4:16,IP5:16,IP6:16, IP7:16,IP8:16>> = Ipv6Bytes,
+  inet:ntoa({IP1, IP2, IP3, IP4, IP5, IP6, IP7, IP8}).
