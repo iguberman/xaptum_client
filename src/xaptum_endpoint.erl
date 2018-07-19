@@ -219,8 +219,11 @@ handle_info({ssl_error, TlsSocket, Error}, #state{tls_socket = TlsSocket} = Stat
   erltls:close(TlsSocket),
   connect(self()),
   {noreply, State};
+handle_info({ssl_closed, TlsSocket}, #state{tls_socket = TlsSocket, callback_data = CallbackData})->
+  lager:warning("SSL closed on ~p for ~p", [TlsSocket, CallbackData]),
+  {stop, ssl_closed};
 handle_info(UnexpectedInfo, State)->
-  lager:warning("UnexpectedInfo ~p", [UnexpectedInfo]),
+  lager:warning("Unexpected info ~p", [UnexpectedInfo]),
   {noreply, State}.
 
 terminate(_Reason, #state{tls_socket = undefined}) ->
