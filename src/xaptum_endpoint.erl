@@ -237,7 +237,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 do_tls_connect(TlsPort, Cert, Key) when is_binary(Cert), is_binary(Key) ->
   XaptumHost = dist_utils:xaptum_host(),
-  lager:debug("Connecting to host ~p", [XaptumHost]),
+  lager:debug("CONNECTING TO ~p:~b", [XaptumHost, TlsPort]),
   erltls:connect(XaptumHost, TlsPort,
     [binary,
       {active, once},

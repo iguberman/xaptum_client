@@ -120,7 +120,7 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
 
   Identity = xtt_client_utils:hex_to_bin(Ipv6),
 
-  lager:info("Got ipv6 ~p from response converted to Identity: ~b", [Ipv6, Identity]),
+  lager:info("Got ipv6 ~p from response converted to Identity: ~p", [Ipv6, Identity]),
 
   {ok, CertAsn1} = xtt_erlang:xtt_x509_from_keypair(Pk, Sk, Identity),
 
