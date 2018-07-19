@@ -123,12 +123,17 @@ test_pub_sub(Config) ->
   test_pub_send_message(Pub, RegMessage, 1),
   test_sub_recv_message(Sub, 1),
 
-  Signal = "Signal from sub!",
-  lager:info("Sending signal ~p to ~p", [Signal, Ipv6]),
+  Signal1 = "Signal 1 from sub!",
+  lager:info("Sending signal ~p to ~p", [Signal1, Ipv6]),
 
-  test_sub_send_message(Sub, Signal, Ipv6, 1),
+  test_sub_send_message(Sub, Signal1, Ipv6, 1),
 
-  test_pub_recv_message(Pub, 1),
+  Signal2 = "Signal 2 from sub!",
+  lager:info("Sending signal ~p to ~p", [Signal2, Ipv6]),
+
+  test_sub_send_message(Sub, Signal2, Ipv6, 2),
+
+  test_pub_recv_message(Pub, 2),
 
   ct:print("New config: ~p~n", [NewConfig]),
   NewConfig.
@@ -152,9 +157,9 @@ test_sub_send_message(SubPid, Message, SendSequence)->
 
 test_sub_send_message(SubPid, Message, Dest, SendSequence)->
   xaptum_endpoint:send_message(SubPid, Message, Dest),
-  #dds{endpoint_data = #endpoint{ipv6 = Ipv6, num_sent = NumSent}} = SubData = xaptum_endpoint:get_data(SubPid),
+  #dds{endpoint_data = #endpoint{ipv6 = Ipv6, num_sent = NumSent}} = xaptum_endpoint:get_data(SubPid),
   lager:info("Sub ~p expecting num_sent ~p, actual ~p", [Ipv6, SendSequence, NumSent]),
-  SendSequence = NumSent.
+  ok.
 
 test_pub_recv_message(PubPid, RecvSequence)->
   timer:sleep(?MESSAGE_LATENCY),
