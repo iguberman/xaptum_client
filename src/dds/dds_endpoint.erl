@@ -172,7 +172,11 @@ on_receive(<<?DDS_MARKER, ReqType, _Size:16, _Payload/binary>>,
   {error, not_ready};
 on_receive(<<?DDS_MARKER, ?CONTROL_MSG, Size:16, Payload/binary>> = Msg,
     #dds{ready = true, endpoint_data = EndpointData0} = CallbackData) ->
-  Size = size(Payload), %% sanity check
+  PayloadSize = size(Payload),
+  case Size of %% sanity check
+    PayloadSize -> ok;
+    Mismatch -> lager:error("Inalid control message ~p. Declared size ~b, actual ~b", [Payload, Size, PayloadSize])
+  end,
   {ok, EndpointData1} = xtt_endpoint:on_receive(Payload, EndpointData0),
   lager:info("Control message ~p received by ~p", [Msg, self()]),
   {ok, CallbackData#dds{endpoint_data = EndpointData1}};
