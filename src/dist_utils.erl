@@ -15,7 +15,7 @@
   xaptum_host/1]).
 
 xaptum_host()->
-  XaptumCluster = application:get_env(xaptum_client, xaptum_cluster),
+  {ok, XaptumCluster} = application:get_env(xaptum_client, xaptum_cluster),
   xaptum_host(XaptumCluster).
 
 xaptum_host(XaptumCluster)->
