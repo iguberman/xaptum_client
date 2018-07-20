@@ -99,7 +99,7 @@ test_pub_sub(Config) ->
   NewConfig.
 
 
-test_pub_sub_multi(Config)->
+%%test_pub_sub_multi(Config)->
 
 %%
 %%test_bacnet(Config) ->
@@ -147,7 +147,7 @@ test_pub_sub_multi(Config)->
 %%% Test utils
 %%%===================================================================
 
-test_pub_send_message(PubPid, Message, SendSequence)->
+test_pub_send_message(PubPid, Message, SendSequence) ->
   xaptum_endpoint:send_message(PubPid, Message),
   #dds{endpoint_data = #endpoint{ipv6 = Ipv6, num_sent = NumSent}} = PubData = xaptum_endpoint:get_data(PubPid),
   lager:info("Pub ~p expecting num_sent ~p, actual ~p", [Ipv6, SendSequence, NumSent]),
