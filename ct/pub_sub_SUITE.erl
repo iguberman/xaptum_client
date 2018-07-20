@@ -150,7 +150,7 @@ wait_for_counts(_PrivActualCount, ExpectedCount, ExpectedCount, _CountFun) ->
   ok;
 %% actual count already more than expected -> FAIL
 wait_for_counts(_PrivActualCount, ActualCount, ExpectedCount, _CountFun) when ActualCount > ExpectedCount ->
-  true = overflow;
+  true = {overflow, ActualCount, ExpectedCount};
 %% made no progress since last time -> FAIL
 wait_for_counts(PrivActualCount, ActualCount, _ExpectedCount, _CountFun) when PrivActualCount >= ActualCount ->
   true = waiting_wont_help_us;
