@@ -60,7 +60,7 @@ on_receive(Msg, #endpoint{num_received = NumReceived} = CallbackData)->
   lager:debug("Calling ~p:on_receive", [?MODULE]),
   {ok, CallbackData#endpoint{num_received = NumReceived + 1, msg = Msg}}.
 
-on_send(Msg, _Dest, #endpoint{num_received = NumSent} = CallbackData) ->
+on_send(Msg, _Dest, #endpoint{num_sent = NumSent} = CallbackData) ->
   {ok, Msg, CallbackData#endpoint{num_sent = NumSent + 1}}.
 
 on_send(Msg, #endpoint{num_sent = NumSent} = CallbackData) ->

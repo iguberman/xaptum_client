@@ -91,7 +91,6 @@ test_pub_sub(Config) ->
   xaptum_endpoint:send_message(Sub1, Signal1, DestIpv6),
   xaptum_endpoint:send_message(Sub2, Signal2, DestIpv6),
 
-
   lager:info("Verifying signal sends"),
 
   verify_counts(2, fun() -> count_sends(Subs) end),
