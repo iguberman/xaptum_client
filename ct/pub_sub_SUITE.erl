@@ -14,7 +14,7 @@
 
 %% API
 -export([all/0, groups/0, init_per_suite/1, end_per_suite/1]).
--export([test_pub_sub/1, test_bacnet/1]).
+-export([test_pub_sub/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -33,9 +33,7 @@
 
 -define(GROUP_DIR, "GROUP").
 -define(CERT_DIR, "CERT").
-%%-define(XTT_CRED_DIR1, "MEMBER1").
-%%-define(XTT_CRED_DIR2, "MEMBER2").
-
+-define(XTT_CRED_DIR(Id), "MEMBER" ++ integer_to_list(Id)).
 -define(GID_FILE_CONFIG, gid_file).
 
 
@@ -63,7 +61,7 @@ end_per_suite(Config) ->
   ok.
 
 test_pub_sub(Config) ->
-  {NewConfig, PubFileCreds} = init_file_creds(Config, ?XTT_CRED_DIR2),
+  {NewConfig, PubFileCreds} = init_file_creds(Config, ?XTT_CRED_DIR(2)),
 
   timer:sleep(5000),
 
