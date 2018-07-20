@@ -36,6 +36,7 @@
 -define(XTT_CRED_DIR(Id), "MEMBER" ++ integer_to_list(Id)).
 -define(GID_FILE_CONFIG, gid_file).
 
+-define(NUM_DEVICES, 1000).
 
 all() -> [
   {group, simple}
@@ -50,7 +51,7 @@ groups() -> [
 init_per_suite(Config)->
   application:ensure_all_started(lager),
   application:ensure_all_started(xaptum_client),
-  xtt_client_utils:generate_credentials(1,1000, ?CRED_BASE_DIR),
+  xtt_client_utils:generate_credentials(1,?NUM_DEVICES, ?CRED_BASE_DIR),
   Config.
 
 end_per_suite(Config) ->
@@ -61,7 +62,7 @@ end_per_suite(Config) ->
   ok.
 
 test_pub_sub(Config) ->
-  {NewConfig, PubFileCreds} = init_file_creds(Config, ?XTT_CRED_DIR(2)),
+  PubFileCreds = init_file_creds(Config, ?XTT_CRED_DIR(1)),
 
   timer:sleep(5000),
 
@@ -95,11 +96,11 @@ test_pub_sub(Config) ->
 
   test_pub_recv_message(Pub, 2),
 
-  ct:print("New config: ~p~n", [NewConfig]),
-  NewConfig.
+  Config.
 
 
 %%test_pub_sub_multi(Config)->
+
 
 %%
 %%test_bacnet(Config) ->
@@ -183,13 +184,13 @@ init_file_creds(Config, MemberDir)->
   NullRequestedClientIdFile = filename:join([DataDir, ?REQUESTED_CLIENT_ID_FILE]),
 
   GroupDir = filename:join([?CRED_BASE_DIR, ?GROUP_DIR]),
-  GidCsvFile = register_gpk_with_mb(GroupDir),
+  register_gpk_with_mb(GroupDir),
 
-  {[{?GID_FILE_CONFIG, GidCsvFile} | Config ], xtt_endpoint:init_file_creds(
+  xtt_endpoint:init_file_creds(
     NullRequestedClientIdFile,
     GroupDir,
     filename:join([DataDir, ?CERT_DIR]),
-    filename:join([?CRED_BASE_DIR, MemberDir]))}.
+    filename:join([?CRED_BASE_DIR, MemberDir])).
 
 register_gpk_with_mb(GroupDir)->
   case xtt_client_utils:generate_group_csv(GroupDir) of
