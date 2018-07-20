@@ -21,8 +21,8 @@
 
 %% API
 -export([
+  start/1,
   start/2,
-  start/3,
   wait_for_endpoint_ready/1,
   wait_for_endpoint_ready/2]).
 
@@ -37,13 +37,13 @@
   on_disconnect/2
 ]).
 
-start(Subnet, Queues, {RemoteIp, RemotePort})->
+start(Subnet, Queues)->
   xaptum_endpoint_sup:create_endpoint(?MODULE,
-    #dds{sub_queues = Queues, endpoint_data = #endpoint{remote_ip = RemoteIp, remote_port = RemotePort}}, Subnet).
+    #dds{sub_queues = Queues, endpoint_data = #endpoint{}}, Subnet).
 
-start(Creds, {RemoteIp, RemotePort})->
+start(Creds)->
   xaptum_endpoint_sup:create_endpoint(?MODULE,
-    #dds{endpoint_data = #endpoint{remote_ip = RemoteIp, remote_port = RemotePort}}, Creds).
+    #dds{endpoint_data = #endpoint{}}, Creds).
 
 wait_for_endpoint_ready(Pub) ->
   wait_for_endpoint_ready(Pub, ?READY_WAIT_TIMEOUT).
@@ -141,7 +141,7 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
 
   {ok, TlsCreds, CallbackData#dds{endpoint_data = EndpointData#endpoint{ipv6 = Identity}}}.
 
-on_connect(TlsSocket, #dds{endpoint_data = #endpoint{ipv6 = Ipv6, remote_ip = RemoteIp, remote_port = RemotePort} = EndpointData0} = CallbackData) ->
+on_connect(TlsSocket, #dds{endpoint_data = #endpoint{ipv6 = Ipv6} = EndpointData0} = CallbackData) ->
   case send_client_hello(TlsSocket, Ipv6) of
     ok ->
       {ok, EndpointData1} = xtt_endpoint:on_connect(TlsSocket, EndpointData0),

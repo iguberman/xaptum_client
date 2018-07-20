@@ -14,7 +14,7 @@
 
 %% API
 -export([all/0, groups/0, init_per_suite/1, end_per_suite/1]).
--export([test_pub/1, test_sub/1, test_pub_sub/1]).
+-export([test_pub_sub/1, test_bacnet/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -22,6 +22,7 @@
 -include_lib("xtt_erlang/include/xtt.hrl").
 -include_lib("xaptum_client/include/xtt_endpoint.hrl").
 -include_lib("xaptum_client/include/dds.hrl").
+-include_lib("xaptum_client/include/bacnet.hrl").
 
 
 -define(MESSAGE_LATENCY, 2000).
@@ -32,17 +33,8 @@
 
 -define(GROUP_DIR, "GROUP").
 -define(CERT_DIR, "CERT").
--define(XTT_CRED_DIR1, "MEMBER1").
--define(XTT_CRED_DIR2, "MEMBER2").
-
-
--define(REMOTE_IP1, <<0,0,0,0,0,0,0,0,0,0,255,255,1,1,1,1>>).
--define(REMOTE_IP1_INT, 281470698586369).
--define(REMOTE_IP2, <<0,0,0,0,0,0,0,0,0,0,255,255,2,2,2,2>>).
--define(REMOTE_IP2_INT, 281470715429378).
--define(REMOTE_PORT1, 42222).
--define(REMOTE_PORT2, 41111).
-
+%%-define(XTT_CRED_DIR1, "MEMBER1").
+%%-define(XTT_CRED_DIR2, "MEMBER2").
 
 -define(GID_FILE_CONFIG, gid_file).
 
@@ -60,7 +52,7 @@ groups() -> [
 init_per_suite(Config)->
   application:ensure_all_started(lager),
   application:ensure_all_started(xaptum_client),
-  xtt_client_utils:generate_credentials(1,2, ?CRED_BASE_DIR),
+  xtt_client_utils:generate_credentials(1,1000, ?CRED_BASE_DIR),
   Config.
 
 end_per_suite(Config) ->
@@ -70,58 +62,28 @@ end_per_suite(Config) ->
 %%  file:delete(GidFile),
   ok.
 
-test_pub(Config)->
-  {NewConfig, FileCreds} = init_file_creds(Config, ?XTT_CRED_DIR1),
-  {ok, Pub} = dds_endpoint:start(FileCreds, {?REMOTE_IP1, ?REMOTE_PORT1}),
-  ct:print("Pub endpoint started: ~p", [Pub] ),
-  {ok, true} = dds_endpoint:wait_for_endpoint_ready(Pub),
-
-  test_pub_send_message(Pub, "Hello from pub!", 1),
-  timer:sleep(100),
-  test_pub_send_message(Pub, "Message 1 from pub!", 2),
-  timer:sleep(100),
-  test_pub_send_message(Pub, "Message 2 from pub!", 3),
-  timer:sleep(100),
-  ct:print("New config: ~p~n", [NewConfig]),
-
-  timer:sleep(5000),
-
-  NewConfig.
-
-test_sub(Config)->
-  Queues = application:get_env(xaptum_client, dds_queues, ["$rr:0"]),
-  {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues, {?REMOTE_IP2, ?REMOTE_PORT2}),
-  {ok, true} = dds_endpoint:wait_for_endpoint_ready(Sub),
-
-  test_sub_send_message(Sub, "Hello from sub!", 1),
-  timer:sleep(100),
-  test_sub_send_message(Sub, "Message 1 from sub!", 2),
-  timer:sleep(100),
-  test_sub_send_message(Sub, "Message 2 from sub!", 3),
-  timer:sleep(100),
-
-  timer:sleep(5000),
-
-  Config.
-
 test_pub_sub(Config) ->
   {NewConfig, PubFileCreds} = init_file_creds(Config, ?XTT_CRED_DIR2),
 
   timer:sleep(5000),
 
   Queues = application:get_env(xaptum_client, dds_queues, ["$rr:0"]),
-  {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues, {?REMOTE_IP1, ?REMOTE_PORT1}),
+  {ok, Sub} = dds_endpoint:start(?DEFAULT_SUBNET, Queues),
   {ok, true} = dds_endpoint:wait_for_endpoint_ready(Sub),
 
   timer:sleep(5000),
-  {ok, Pub} = dds_endpoint:start(PubFileCreds, {?REMOTE_IP2, ?REMOTE_PORT2}),
+  {ok, Pub} = dds_endpoint:start(PubFileCreds),
   {ok, true} = dds_endpoint:wait_for_endpoint_ready(Pub),
 
   #dds{endpoint_data = #endpoint{ipv6 = Ipv6, num_sent = SendSequence}} = xaptum_endpoint:get_data(Pub),
 
-  RegMessage = "Hello from pub!",
-  test_pub_send_message(Pub, RegMessage, 1),
+  RegMessage1 = "Hello2 from pub!",
+  test_pub_send_message(Pub, RegMessage1, 1),
   test_sub_recv_message(Sub, 1),
+
+  RegMessage2 = "Hello2 from pub!",
+  test_pub_send_message(Pub, RegMessage2, 2),
+  test_sub_recv_message(Sub, 2),
 
   Signal1 = "Signal 1 from sub!",
   lager:info("Sending signal ~p to ~p", [Signal1, Ipv6]),
@@ -137,6 +99,50 @@ test_pub_sub(Config) ->
 
   ct:print("New config: ~p~n", [NewConfig]),
   NewConfig.
+
+
+test_pub_sub_multi(Config)->
+
+%%
+%%test_bacnet(Config) ->
+%%  {NewConfig, PubFileCreds} = init_file_creds(Config, ?XTT_CRED_DIR2),
+%%
+%%  timer:sleep(5000),
+%%
+%%  Queues = application:get_env(xaptum_client, dds_queues, ["$rr:0"]),
+%%  {ok, Sub} = bacnet_control:start(?DEFAULT_SUBNET, Queues),
+%%  {ok, true} = dds_endpoint:wait_for_endpoint_ready(Sub),
+%%
+%%  timer:sleep(5000),
+%%  {ok, BacnetProxy} = bacnet_proxy:start(PubFileCreds),
+%%%% TODO wait for ready instead
+%%  timer:sleep(1000),
+%%
+%%  #bacnet_pub{dds = #dds{endpoint_data = #endpoint{ipv6 = Ipv6, num_sent = SendSequence}}} = xaptum_endpoint:get_data(BacnetProxy),
+%%
+%%  RegMessage1 = "Hello2 from pub!",
+%%  test_pub_send_message(Pub, RegMessage1, 1),
+%%  test_sub_recv_message(Sub, 1),
+%%
+%%  RegMessage2 = "Hello2 from pub!",
+%%  test_pub_send_message(Pub, RegMessage2, 2),
+%%  test_sub_recv_message(Sub, 2),
+%%
+%%  Signal1 = "Signal 1 from sub!",
+%%  lager:info("Sending signal ~p to ~p", [Signal1, Ipv6]),
+%%
+%%  test_sub_send_message(Sub, Signal1, Ipv6, 1),
+%%
+%%  Signal2 = "Signal 2 from sub!",
+%%  lager:info("Sending signal ~p to ~p", [Signal2, Ipv6]),
+%%
+%%  test_sub_send_message(Sub, Signal2, Ipv6, 2),
+%%
+%%  test_pub_recv_message(Pub, 2),
+%%
+%%  ct:print("New config: ~p~n", [NewConfig]),
+%%  NewConfig.
+
 
 
 %%%===================================================================

@@ -13,6 +13,6 @@
 
 -record(hosts_config, {xaptum_host, xtt_port, tls_port, xcr_host, xcr_port}).
 
--record(endpoint, {ipv6, num_sent = 0, num_received = 0, num_reconnects = 0, msg = <<>>, remote_ip, remote_port}).
+-record(endpoint, {ipv6, num_sent = 0, num_received = 0, num_reconnects = 0, msg = <<>>}).
 
 -endif.
