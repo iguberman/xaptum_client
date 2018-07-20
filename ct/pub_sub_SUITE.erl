@@ -13,8 +13,8 @@
 -compile([{parse_transform, lager_transform}]).
 
 %% API
--export([all/0, groups/0, init_per_suite/1, end_per_suite/1]).
--export([test_pub_sub/1]).
+-export([all/0, groups/0, init_per_suite/1, end_per_suite/1, init_per_group/2, end_per_group/2]).
+-export([test_pub_sub/1, test_devices/1, test_subs/1, send_reg_messages/3]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -34,22 +34,27 @@
 -define(GROUP_DIR, "GROUP").
 -define(CERT_DIR, "CERT").
 -define(XTT_CRED_DIR(Id), "MEMBER" ++ integer_to_list(Id)).
+
+-define(MESSAGE(Prefix, Id1, Id2), Prefix ++ integer_to_list(Id1) ++ "_" ++ integer_to_list(Id2)).
+
 -define(GID_FILE_CONFIG, gid_file).
 
 -define(NUM_DEVICES, 1000).
 
 all() -> [
-  {group, simple}
+  {group, simple},
+  {group, large}
 ].
 
 groups() -> [
-  {simple, [sequence], [test_pub_sub]}
+  {simple, [sequence], [test_pub_sub]},
+  {large, [parallel], [test_devices, test_subs]}
 ].
 
 init_per_suite(Config)->
   application:ensure_all_started(lager),
   application:ensure_all_started(xaptum_client),
-  xtt_client_utils:generate_credentials(1,?NUM_DEVICES, ?CRED_BASE_DIR),
+  xtt_client_utils:generate_credentials(1,1001, ?CRED_BASE_DIR),
   Config.
 
 end_per_suite(Config) ->
@@ -59,15 +64,41 @@ end_per_suite(Config) ->
 %%  file:delete(GidFile),
   ok.
 
+init_per_group(large, Config)->
+  DataDir = ?config(data_dir, Config),
+
+  Subs = start_rr_subscribers(5),
+
+  Devs = start_devices(DataDir, 2, 1001, 100),
+
+  Config ++ [{subs, Subs}, {devs, Devs}];
+init_per_group(simple, Config)->
+  Config.
+
+end_per_group(_Any, _Config)->
+  ok.
+
+test_devices(Config)->
+  Config.
+
+test_subs(Config)->
+  Subs = ?config(subs),
+  Devs = ?config(devs),
+
+  verify_counts(100000, fun() -> count_sends(Devs) end),
+  verify_counts(100000, fun() -> count_receives(Subs) end),
+
+  Config.
+
 test_pub_sub(Config) ->
   DataDir = ?config(data_dir, Config),
 
   [Sub1, Sub2] = Subs = start_rr_subscribers(2),
 
-  [Dev1] = Devs = start_devices(DataDir, 1),
+  [Dev1] = Devs = start_devices(DataDir, 1,1),
 
-  RegMessage1 = "Hello1 from dev!",
-  RegMessage2 = "Hello2 from dev!",
+  RegMessage1 = ?MESSAGE("DEV_", 1,1),
+  RegMessage2 = ?MESSAGE("DEV_", 1,2),
 
   lager:info("Sending reg messages..."),
 
@@ -106,15 +137,22 @@ test_pub_sub(Config) ->
 %%% Test utils
 %%%===================================================================
 
+start_devices(DataDir, StartDevices, EndDevices)->
+  start_devices(DataDir, StartDevices, EndDevices, 0).
 
-start_devices(DataDir, NumDevices)->
-  [start_device(DataDir, N) || N <- lists:seq(1, NumDevices)].
+start_devices(DataDir, StartDevices, EndDevices, NumMessages)->
+  [start_device(DataDir, N, NumMessages) || N <- lists:seq(StartDevices, EndDevices)].
 
-start_device(DataDir, N)->
+start_device(DataDir, N, NumMessages)->
   PubFileCreds = init_file_creds(DataDir, ?XTT_CRED_DIR(N)),
   {ok, Device} = dds_endpoint:start(PubFileCreds),
   {ok, true} = dds_endpoint:wait_for_endpoint_ready(Device),
+  Self = self(),
+  spawn(?MODULE, send_reg_messages, [Self, N, NumMessages]),
   Device.
+
+send_reg_messages(EndpointPid, EndpointSequence, NumMessages)->
+  [ xaptum_endpoint:send_message(EndpointPid, ?MESSAGE("DEV_REG_", EndpointSequence, MN)) || MN <- lists:seq(1, NumMessages) ].
 
 start_rr_subscribers(NumSubs) ->
   Queues = application:get_env(xaptum_client, dds_queues, ["$rr:0"]),
