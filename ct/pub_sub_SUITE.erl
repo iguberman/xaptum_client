@@ -87,6 +87,8 @@ end_per_group(_Any, _Config)->
   ok.
 
 test_devices(Config)->
+  lager:info("################ test_devices ######################"),
+
   Subs = ?config(subs, Config),
   Devs = ?config(devs, Config),
 
@@ -101,6 +103,8 @@ test_devices(Config)->
   Config.
 
 test_subs(Config)->
+  lager:info("################ test_subs ######################"),
+
   Subs = ?config(subs, Config),
   Devs = ?config(devs, Config),
 
@@ -241,6 +245,7 @@ wait_for_counts(PrivActualCount, ActualCount, ExpectedCount, _CountFun) when Pri
 wait_for_counts(PrivActualCount, ActualCount, ExpectedCount, CountFun) when PrivActualCount < ActualCount ->
   timer:sleep(2000),
   NewActualCount = CountFun(),
+  lager:info("............ wait_for_counts(~b, ~b, ~b)..............", [ActualCount, NewActualCount, ExpectedCount]),
   wait_for_counts(ActualCount, NewActualCount, ExpectedCount, CountFun).
 
 
