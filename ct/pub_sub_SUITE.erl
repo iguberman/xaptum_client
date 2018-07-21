@@ -41,7 +41,7 @@
 
 -define(NUM_DEVICES, 100).
 -define(NUM_SUBS, 5).
--define(NUM_DEV_MESSAGES, 1000).
+-define(NUM_DEV_MESSAGES, 100).
 -define(NUM_SUB_MESSAGES, 100).
 
 all() -> [
@@ -185,7 +185,7 @@ send_signals(EndpointPid, EndpointSequence, DestinationPids, NumMessages) ->
      xaptum_endpoint:send_message(EndpointPid, ?MESSAGE("SIGNAL_", EndpointSequence, MN), DestinationIpv6),
      timer:sleep(10)
    end
-    || DestinationIpv6 <- Destinations].
+    || DestinationIpv6 <- Destinations, MN <- lists:seq(1, NumMessages)].
 
 send_reg_messages(EndpointPid, EndpointSequence, NumMessages) ->
   [begin
