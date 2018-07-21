@@ -173,22 +173,24 @@ handle_cast({send_message, Payload, Dest}, #state{
     {error, retry_later} -> {noreply, CallbackData0};
     {ok, Message, CallbackData1} ->
       ok = erltls:send(TlsSocket, Message),
-      lager:info("Sent message ~p to destination ~p", [Message, Dest]),
+      lager:info("####### Sent message ~p to destination ~p ########", [Message, Dest]),
       {noreply, State#state{callback_data = CallbackData1}}
   end;
 handle_cast({send_message, Payload}, #state{
   tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket,
   callback_module = CallbackModule, callback_data = CallbackData0} = State)
     when is_port(TcpSocket), is_pid(SslPid) ->
+  lager:debug("Publishing message ~p", [Payload]),
   case CallbackModule:on_send(Payload, CallbackData0) of
     {error, retry_later} ->
+      lager:warning("Can't send message ~p retrying later", [Payload]),
       timer:sleep(100),
       gen_server:cast(self(), maybe_connect),
       gen_server:cast(self(), {send_message, Payload}),
       {noreply, CallbackData0};
     {ok, Message, CallbackData1} ->
       ok = erltls:send(TlsSocket, Message),
-      lager:info("Published message ~p", [Message]),
+      lager:info("####### Published message ~p ########## ", [Message]),
       {noreply, State#state{callback_data = CallbackData1}}
   end;
 handle_cast({send_message, Payload}, State)->
