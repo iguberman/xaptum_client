@@ -131,6 +131,10 @@ test_pub_sub(Config) ->
 
   verify_counts(2, fun() -> count_receives(Devs) end),
 
+  xaptum_endpoint:disconnect(Sub1),
+  xaptum_endpoint:disconnect(Sub2),
+  xaptum_endpoint:disconnect(Dev1),
+
   Config.
 
 
