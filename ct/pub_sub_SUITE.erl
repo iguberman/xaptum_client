@@ -42,7 +42,7 @@
 -define(NUM_DEVICES, 1000).
 
 all() -> [
-  {group, simple},
+%%  {group, simple},
   {group, large}
 ].
 
@@ -70,6 +70,10 @@ init_per_group(large, Config)->
   Subs = start_rr_subscribers(5),
 
   Devs = start_devices(DataDir, 2, 11, 100),
+
+  lager:info("*******************************************************************"),
+  lager:info("********************** Started ~b subs and ~b devs *************", [length(Subs), length(Devs)]),
+  lager:info("*******************************************************************"),
 
   Config ++ [{subs, Subs}, {devs, Devs}];
 
