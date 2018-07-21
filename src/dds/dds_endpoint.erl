@@ -169,7 +169,7 @@ on_receive(<<?DDS_MARKER, ReqType, Size:16, Rest/binary>> = Packet, #dds{prev_by
       <<Payload:Size/binary, ExtraBytes/binary>> = Rest,
       case process_dds_packet(ReqType, Payload, DdsEndpoint) of
         {ok, DdsEndpoint1} ->
-          process_packet(ExtraBytes, DdsEndpoint1);
+          on_receive(ExtraBytes, DdsEndpoint1);
         {error, Reason} -> {error, Reason}
       end
   end;
