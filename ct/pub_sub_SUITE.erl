@@ -39,7 +39,10 @@
 
 -define(GID_FILE_CONFIG, gid_file).
 
--define(NUM_DEVICES, 1000).
+-define(NUM_DEVICES, 100).
+-define(NUM_SUBS, 5).
+-define(NUM_DEV_MESSAGES, 1000).
+-define(NUM_SUB_MESSAGES, 100).
 
 all() -> [
 %%  {group, simple},
@@ -67,9 +70,9 @@ end_per_suite(Config) ->
 init_per_group(large, Config)->
   DataDir = ?config(data_dir, Config),
 
-  Subs = start_rr_subscribers(5),
+  Subs = start_rr_subscribers(?NUM_SUBS),
 
-  Devs = start_devices(DataDir, 2, 101, 1000),
+  Devs = start_devices(DataDir, 1, ?NUM_DEVICES, ?NUM_DEV_MESSAGES),
 
   lager:info("*******************************************************************"),
   lager:info("********************** Started ~b subs and ~b devs *************", [length(Subs), length(Devs)]),
@@ -84,14 +87,26 @@ end_per_group(_Any, _Config)->
   ok.
 
 test_devices(Config)->
+  Subs = ?config(subs, Config),
+  Devs = ?config(devs, Config),
+
+  %% NOTE inefficient comprehension is ok as long as we only have few of subs
+  [send_signals(lists:nth(N, Subs), N, Devs, ?NUM_SUB_MESSAGES) || N <- lists:seq(1, length(Subs))],
+
+  TotalSubMessages = ?NUM_SUBS * ?NUM_SUB_MESSAGES,
+
+  verify_counts(TotalSubMessages, fun() -> count_sends(Subs) end),
+  verify_counts(TotalSubMessages, fun() -> count_receives(Devs) end),
+
   Config.
 
 test_subs(Config)->
   Subs = ?config(subs, Config),
   Devs = ?config(devs, Config),
 
-  verify_counts(1000, fun() -> count_sends(Devs) end),
-  verify_counts(1000, fun() -> count_receives(Subs) end),
+  TotalDevMessages = ?NUM_DEVICES * ?NUM_DEV_MESSAGES,
+  verify_counts(TotalDevMessages, fun() -> count_sends(Devs) end),
+  verify_counts(TotalDevMessages, fun() -> count_receives(Subs) end),
 
   Config.
 
@@ -159,6 +174,18 @@ start_device(DataDir, N, NumMessages)->
   lager:info("############## STARTING TO SEND ~b messages from device #~b", [NumMessages, N]),
   spawn(?MODULE, send_reg_messages, [Device, N, NumMessages]),
   Device.
+
+send_signals(EndpointPid, EndpointSequence, DestinationPids, NumMessages) ->
+  Destinations =
+    [begin
+       #dds{endpoint_data = #endpoint{ipv6 = Ipv6}} = xaptum_endpoint:get_data(DestinationPid),
+       Ipv6
+     end || DestinationPid <- DestinationPids],
+  [begin
+     xaptum_endpoint:send_message(EndpointPid, ?MESSAGE("SIGNAL_", EndpointSequence, MN), DestinationIpv6),
+     timer:sleep(10)
+   end
+    || DestinationIpv6 <- Destinations].
 
 send_reg_messages(EndpointPid, EndpointSequence, NumMessages) ->
   [begin

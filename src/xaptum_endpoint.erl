@@ -69,7 +69,6 @@ send_message(EndpointPid, Msg, Dest)->
   gen_server:cast(EndpointPid, {send_message, Msg, Dest}).
 
 send_message(EndpointPid, Msg)->
-  lager:info("~p sending message ~p", [EndpointPid, Msg]),
   gen_server:cast(EndpointPid, {send_message, Msg}).
 
 get_data(EndpointPid)->
@@ -173,7 +172,7 @@ handle_cast({send_message, Payload, Dest}, #state{
     {error, retry_later} -> {noreply, CallbackData0};
     {ok, Message, CallbackData1} ->
       ok = erltls:send(TlsSocket, Message),
-      lager:info("####### Sent message ~p to destination ~p ########", [Message, Dest]),
+      lager:debug("####### Sent message ~p to destination ~p ########", [Message, Dest]),
       {noreply, State#state{callback_data = CallbackData1}}
   end;
 handle_cast({send_message, Payload}, #state{
@@ -190,7 +189,7 @@ handle_cast({send_message, Payload}, #state{
       {noreply, CallbackData0};
     {ok, Message, CallbackData1} ->
       ok = erltls:send(TlsSocket, Message),
-      lager:info("####### Published message ~p ########## ", [Message]),
+      lager:debug("####### Published message ~p ########## ", [Message]),
       {noreply, State#state{callback_data = CallbackData1}}
   end;
 handle_cast({send_message, Payload}, State)->
@@ -200,7 +199,7 @@ handle_cast({send_request, Request}, #state{
   tls_socket = #tlssocket{} = TlsSocket} = State)->
   case erltls:send(TlsSocket, Request) of
     ok ->
-      lager:info("Sent request ~p", [Request]),
+      lager:debug("Sent request ~p", [Request]),
       {noreply, State};
     {error, Error} ->
       lager:error("Failed to send request ~p due to error ~p", [Request, Error]),
