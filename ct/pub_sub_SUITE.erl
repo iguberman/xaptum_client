@@ -177,17 +177,23 @@ start_rr_subscriber(Queues)->
   Sub.
 
 count_receives(Endpoints)->
+  lager:info("Counting receives on ~p", [Endpoints]),
   lists:foldl(
     fun(EndpointPid, Acc) ->
-      #dds{endpoint_data = #endpoint{num_received = NumRecv}} = xaptum_endpoint:get_data(EndpointPid), Acc + NumRecv
+      #dds{endpoint_data = #endpoint{num_received = NumRecv}} = xaptum_endpoint:get_data(EndpointPid),
+      lager:info("~p received ~b", [EndpointPid, NumRecv]),
+      Acc + NumRecv
     end,
     0,
     Endpoints).
 
 count_sends(Endpoints)->
+  lager:info("Counting sends on ~p", [Endpoints]),
   lists:foldl(
     fun(EndpointPid, Acc) ->
-      #dds{endpoint_data = #endpoint{num_sent = NumSent}} = xaptum_endpoint:get_data(EndpointPid), Acc + NumSent
+      #dds{endpoint_data = #endpoint{num_sent = NumSent}} = xaptum_endpoint:get_data(EndpointPid),
+      lager:info("~p sent ~b", [EndpointPid, NumSent]),
+      Acc + NumSent
     end,
     0,
     Endpoints).
