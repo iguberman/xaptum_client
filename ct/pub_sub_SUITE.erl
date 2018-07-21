@@ -98,7 +98,12 @@ test_devices(Config)->
   TotalSubMessages = ?NUM_SUBS * ?NUM_SUB_MESSAGES,
 
   verify_counts(TotalSubMessages, fun() -> count_sends(Subs) end),
+
+  lager:info("################ test_devices:  verified SUB sends ######################"),
+
   verify_counts(TotalSubMessages, fun() -> count_receives(Devs) end),
+
+  lager:info("################ test_devices:  verified DEV receives ######################"),
 
   Config.
 
@@ -180,6 +185,8 @@ start_device(DataDir, N, NumMessages)->
   Device.
 
 send_signals(EndpointPid, EndpointSequence, DestinationPids, NumMessages) ->
+  lager:info("###### START sending ~b signals from endpoint ~b  to ~b devices ########",
+    [NumMessages, EndpointSequence, length(DestinationPids)]),
   Destinations =
     [begin
        #dds{endpoint_data = #endpoint{ipv6 = Ipv6}} = xaptum_endpoint:get_data(DestinationPid),
@@ -189,7 +196,9 @@ send_signals(EndpointPid, EndpointSequence, DestinationPids, NumMessages) ->
      xaptum_endpoint:send_message(EndpointPid, ?MESSAGE("SIGNAL_", EndpointSequence, MN), DestinationIpv6),
      timer:sleep(10)
    end
-    || DestinationIpv6 <- Destinations, MN <- lists:seq(1, NumMessages)].
+    || DestinationIpv6 <- Destinations, MN <- lists:seq(1, NumMessages)],
+  lager:info("###### DONE sending ~b signals from endpoint ~b to ~b destinations ########",
+    [NumMessages, EndpointSequence, length(Destinations)]).
 
 send_reg_messages(EndpointPid, EndpointSequence, NumMessages) ->
   [begin
@@ -234,6 +243,7 @@ verify_counts(ExpectedCount, CountFun)->
 
 %% MATCH of actual and expected counts -> SUCCESS!
 wait_for_counts(_PrivActualCount, ExpectedCount, ExpectedCount, _CountFun) ->
+  lager:info("SUCCESS: got expected count ~b", [ExpectedCount]),
   ok;
 %% actual count already more than expected -> FAIL
 wait_for_counts(_PrivActualCount, ActualCount, ExpectedCount, _CountFun) when ActualCount > ExpectedCount ->
