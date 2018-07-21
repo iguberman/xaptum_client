@@ -149,6 +149,7 @@ start_device(DataDir, N, NumMessages)->
   {ok, Device} = dds_endpoint:start(PubFileCreds),
   {ok, true} = dds_endpoint:wait_for_endpoint_ready(Device),
   Self = self(),
+  lager:info("############## STARTING TO SEND ~b messages from device #~b", [NumMessages, N]),
   spawn(?MODULE, send_reg_messages, [Self, N, NumMessages]),
   Device.
 
@@ -188,13 +189,13 @@ wait_for_counts(_PrivActualCount, ExpectedCount, ExpectedCount, _CountFun) ->
   ok;
 %% actual count already more than expected -> FAIL
 wait_for_counts(_PrivActualCount, ActualCount, ExpectedCount, _CountFun) when ActualCount > ExpectedCount ->
-  true = {overflow, ActualCount, ExpectedCount};
+  true = {overflow, actual, ActualCount, expected, ExpectedCount};
 %% made no progress since last time -> FAIL
-wait_for_counts(PrivActualCount, ActualCount, _ExpectedCount, _CountFun) when PrivActualCount >= ActualCount ->
-  true = waiting_wont_help_us;
+wait_for_counts(PrivActualCount, ActualCount, ExpectedCount, _CountFun) when PrivActualCount >= ActualCount ->
+  true = {waiting_wont_help_us, actual, ActualCount, expected, ExpectedCount};
 %% actual count is increasing, keep trying
 wait_for_counts(PrivActualCount, ActualCount, ExpectedCount, CountFun) when PrivActualCount < ActualCount ->
-  timer:sleep(1000),
+  timer:sleep(5000),
   NewActualCount = CountFun(),
   wait_for_counts(ActualCount, NewActualCount, ExpectedCount, CountFun).
 

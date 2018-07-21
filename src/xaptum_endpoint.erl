@@ -69,6 +69,7 @@ send_message(EndpointPid, Msg, Dest)->
   gen_server:cast(EndpointPid, {send_message, Msg, Dest}).
 
 send_message(EndpointPid, Msg)->
+  lager:info("~p sending message ~p", [EndpointPid, Msg]),
   gen_server:cast(EndpointPid, {send_message, Msg}).
 
 get_data(EndpointPid)->
