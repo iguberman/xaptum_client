@@ -95,7 +95,7 @@ test_devices(Config)->
   %% NOTE inefficient comprehension is ok as long as we only have few of subs
   [send_signals(lists:nth(N, Subs), N, Devs, ?NUM_SUB_MESSAGES) || N <- lists:seq(1, length(Subs))],
 
-  TotalSubMessages = ?NUM_SUBS * ?NUM_SUB_MESSAGES,
+  TotalSubMessages = ?NUM_SUBS * ?NUM_SUB_MESSAGES * ?NUM_DEVICES,
 
   verify_counts(TotalSubMessages, fun() -> count_sends(Subs) end),
 
