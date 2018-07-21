@@ -73,7 +73,7 @@ init_per_group(large, Config)->
 
   NewConfig = Config ++ [{subs, Subs}, {devs, Devs}],
   lager:info("NewConfig: ~p", [NewConfig]),
-  NewConfig.
+  NewConfig;
 
 init_per_group(simple, Config)->
   Config.
