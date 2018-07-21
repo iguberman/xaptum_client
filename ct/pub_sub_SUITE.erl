@@ -71,9 +71,7 @@ init_per_group(large, Config)->
 
   Devs = start_devices(DataDir, 2, 11, 100),
 
-  NewConfig = Config ++ [{subs, Subs}, {devs, Devs}],
-  lager:info("NewConfig: ~p", [NewConfig]),
-  NewConfig;
+  Config ++ [{subs, Subs}, {devs, Devs}];
 
 init_per_group(simple, Config)->
   Config.
@@ -85,9 +83,8 @@ test_devices(Config)->
   Config.
 
 test_subs(Config)->
-  lager:info("Looking for subs and devs in config ~p", [Config]),
-  Subs = ?config(subs),
-  Devs = ?config(devs),
+  Subs = ?config(subs, Config),
+  Devs = ?config(devs, Config),
 
   verify_counts(1000, fun() -> count_sends(Devs) end),
   verify_counts(1000, fun() -> count_receives(Subs) end),
