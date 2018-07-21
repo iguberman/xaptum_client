@@ -160,28 +160,44 @@ on_reconnect(TlsSocket, #dds{
 on_disconnect(_TlsSocket, CallbackData) ->
   {ok, CallbackData}.
 
-on_receive(<<?DDS_MARKER, ?DDS_SERVER_HELLO, ?IPV6_SIZE:16, Ipv6:?IPV6_SIZE/bytes>>,
+on_receive(<<?DDS_MARKER, ReqType, Size:16, Rest/binary>> = Packet, #dds{prev_bytes = <<>>} = DdsEndpoint)->
+  case size(Rest) of
+    Size -> process_dds_packet(ReqType, Rest, DdsEndpoint);
+    SmallerSize when SmallerSize < Size ->
+      {ok, DdsEndpoint#dds{prev_bytes = Packet}};
+    LargerSize when LargerSize > Size ->
+      <<Payload:Size/binary, ExtraBytes/binary>> = Rest,
+      case process_dds_packet(ReqType, Payload, DdsEndpoint) of
+        {ok, DdsEndpoint1} ->
+          process_packet(ExtraBytes, DdsEndpoint1);
+        {error, Reason} -> {error, Reason}
+      end
+  end;
+on_receive(Packet, #dds{prev_bytes = PrevBytes} = DdsEndpoint) when size(PrevBytes) > 0 ->
+  Size = size(PrevBytes),
+  on_receive(<<PrevBytes:Size/binary, Packet/binary>>, DdsEndpoint#dds{prev_bytes = <<>>});
+on_receive(UnexpectedTcpPacket, #dds{prev_bytes = PrevBytes} = DdsEndpoint)->
+  lager:warning("TCP: Unexpected tcp packet ~p, PrevBytes ~p", [UnexpectedTcpPacket, PrevBytes]),
+  {error, invalid_packet}.
+
+process_dds_packet(?DDS_SERVER_HELLO, Ipv6,
     #dds{sub_queues = Queues, endpoint_data = #endpoint{ipv6 = Ipv6}} = CallbackData)->
   lager:info("SERVER HELLO received by ~p", [Ipv6]),
   lager:info("Generating sub requests for queues ~p", [Queues]),
   [send_subscribe_request(Queue) || Queue <- Queues],
   {ok, CallbackData#dds{ready = true}};
-on_receive(<<?DDS_MARKER, ReqType, _Size:16, _Payload/binary>>,
+process_dds_packet(ReqType, _Payload,
     #dds{ready = false})  when ReqType =:= ?SUB_REQ; ReqType =:= ?REG_MSG; ReqType =:= ?CONTROL_MSG ->
   lager:error("Got message type ~p request, while not in ready state!", [ReqType]),
   {error, not_ready};
-on_receive(<<?DDS_MARKER, ?CONTROL_MSG, Size:16, Payload/binary>> = Msg,
+process_dds_packet(?CONTROL_MSG, Payload,
     #dds{ready = true, endpoint_data = EndpointData0} = CallbackData) ->
-  PayloadSize = size(Payload),
-  case Size of %% sanity check
-    PayloadSize -> ok;
-    Mismatch -> lager:error("Inalid control message ~p. Declared size ~b, actual ~b", [Payload, Size, PayloadSize])
-  end,
   {ok, EndpointData1} = xtt_endpoint:on_receive(Payload, EndpointData0),
-  lager:info("Control message ~p received by ~p", [Msg, self()]),
+  lager:info("Control message ~p received by ~p", [Payload, self()]),
   {ok, CallbackData#dds{endpoint_data = EndpointData1}};
-on_receive(Unexpected, CallbackData)->
-  lager:error("DDS_ENDPOINT ~p received unexpected message ~p", [Unexpected, CallbackData] ).
+process_dds_packet(UnexpectedRequest, Payload, CallbackData)->
+  lager:error("DDS_ENDPOINT ~p received unexpected request ~p with payload ~p", [CallbackData, UnexpectedRequest, Payload] ),
+  {error, unexpected_dds_request}.
 
 on_send(_Msg, #dds{ready = false}) ->
   lager:error("Not ready to send messages or requests ~p! Try again later", []),

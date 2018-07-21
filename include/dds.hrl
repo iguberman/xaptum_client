@@ -6,7 +6,7 @@
 -define(DEVICE, device).
 -define(SUBSCRIBER, subscriber).
 
--record(dds, {endpoint_data = #endpoint{}, num_connects = 0, ready = false, sub_queues = []}).
+-record(dds, {endpoint_data = #endpoint{}, num_connects = 0, ready = false, sub_queues = [], prev_bytes = <<>>}).
 
 -define(DDS_MARKER, 120).
 
