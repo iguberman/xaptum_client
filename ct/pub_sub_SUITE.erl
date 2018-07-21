@@ -152,8 +152,12 @@ start_device(DataDir, N, NumMessages)->
   spawn(?MODULE, send_reg_messages, [Device, N, NumMessages]),
   Device.
 
-send_reg_messages(EndpointPid, EndpointSequence, NumMessages)->
-  [ xaptum_endpoint:send_message(EndpointPid, ?MESSAGE("DEV_REG_", EndpointSequence, MN)) || MN <- lists:seq(1, NumMessages) ].
+send_reg_messages(EndpointPid, EndpointSequence, NumMessages) ->
+  [begin
+     xaptum_endpoint:send_message(EndpointPid, ?MESSAGE("DEV_REG_", EndpointSequence, MN)),
+     timer:sleep(10)
+   end
+    || MN <- lists:seq(1, NumMessages)].
 
 start_rr_subscribers(NumSubs) ->
   Queues = application:get_env(xaptum_client, dds_queues, ["$rr:0"]),
