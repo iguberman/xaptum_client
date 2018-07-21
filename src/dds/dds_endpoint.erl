@@ -95,14 +95,14 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
     XcrUsername ++ "\", \"token\": \"" ++ XcrToken ++ "\" }' http://"
     ++ XcrHost ++ ":" ++ integer_to_list(XcrPort) ++ "/api/xcr/v2/xauth",
 
-  lager:info("Executing get token cmd: ~n~p", [GetTokenCmd]),
+  lager:debug("Executing get token cmd: ~n~p", [GetTokenCmd]),
 
   jsx:maps_support(),
   TokenJson = os:cmd(GetTokenCmd),
   TokenJsonDecoded = jsx:decode(list_to_binary(TokenJson), [return_maps]),
   #{<<"data">> := [#{<<"token">> := Token}]} = TokenJsonDecoded,
 
-  lager:info("Got Token from XCR: ~p", [Token]),
+  lager:debug("Got Token from XCR: ~p", [Token]),
 
   CurlCmd = "curl -s -X POST -H \"Content-Type: application/json\" -H \"Authorization: Bearer " ++ binary_to_list(Token)
     ++ "\" -d '{ \"subnet\" : \"" ++ SubnetStr ++ "/64\", \"pub_key\" : \""
@@ -119,13 +119,13 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
   JsonResp = os:cmd(CurlCmd),
 
   DecodedResp = jsx:decode(list_to_binary(JsonResp), [return_maps]),
-  lager:info("Decoded curl resp: ~p", [DecodedResp]),
+  lager:debug("Decoded curl resp: ~p", [DecodedResp]),
 
   #{<<"data">> := [#{<<"ipv6">> := Ipv6}]} = DecodedResp,
 
   Identity = xtt_client_utils:hex_to_bin(Ipv6),
 
-  lager:info("Got ipv6 ~p from response converted to Identity: ~p", [Ipv6, Identity]),
+  lager:debug("Got ipv6 ~p from response converted to Identity: ~p", [Ipv6, Identity]),
 
   {ok, CertAsn1} = xtt_erlang:xtt_x509_from_keypair(Pk, Sk, Identity),
 
@@ -133,7 +133,7 @@ auth(#hosts_config{xcr_host = XcrHost, xcr_port = XcrPort}, Subnet,
 
   TlsCreds = #tls_creds{key = PrivKeyAsn1, cert = CertAsn1, identity = Identity},
 
-  lager:info("Resulting tls_creds: ~p", [TlsCreds]),
+  lager:debug("Resulting tls_creds: ~p", [TlsCreds]),
 
   lager:info("************* SUB AUTH complete ~p (~p)***************", [Identity, convert_to_Ipv6Str(Identity)]),
 
@@ -193,7 +193,7 @@ process_dds_packet(ReqType, _Payload,
 process_dds_packet(?CONTROL_MSG, Payload,
     #dds{ready = true, endpoint_data = EndpointData0} = CallbackData) ->
   {ok, EndpointData1} = xtt_endpoint:on_receive(Payload, EndpointData0),
-  lager:info("Control message ~p received by ~p", [Payload, self()]),
+  lager:debug("RECV CONTROL_MSG ~p", [Payload]),
   {ok, CallbackData#dds{endpoint_data = EndpointData1}};
 process_dds_packet(UnexpectedRequest, Payload, CallbackData)->
   lager:error("DDS_ENDPOINT ~p received unexpected request ~p with payload ~p", [CallbackData, UnexpectedRequest, Payload] ),

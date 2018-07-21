@@ -69,7 +69,7 @@ init_per_group(large, Config)->
 
   Subs = start_rr_subscribers(5),
 
-  Devs = start_devices(DataDir, 2, 11, 100),
+  Devs = start_devices(DataDir, 2, 101, 1000),
 
   lager:info("*******************************************************************"),
   lager:info("********************** Started ~b subs and ~b devs *************", [length(Subs), length(Devs)]),
@@ -162,8 +162,8 @@ start_device(DataDir, N, NumMessages)->
 
 send_reg_messages(EndpointPid, EndpointSequence, NumMessages) ->
   [begin
-     xaptum_endpoint:send_message(EndpointPid, ?MESSAGE("DEV_REG_", EndpointSequence, MN)),
-     timer:sleep(10)
+     xaptum_endpoint:send_message(EndpointPid, ?MESSAGE("DEV_REG_", EndpointSequence, MN))
+     %%,timer:sleep(10)
    end
     || MN <- lists:seq(1, NumMessages)].
 
@@ -212,7 +212,7 @@ wait_for_counts(PrivActualCount, ActualCount, ExpectedCount, _CountFun) when Pri
   true = {waiting_wont_help_us, actual, ActualCount, expected, ExpectedCount};
 %% actual count is increasing, keep trying
 wait_for_counts(PrivActualCount, ActualCount, ExpectedCount, CountFun) when PrivActualCount < ActualCount ->
-  timer:sleep(5000),
+  timer:sleep(2000),
   NewActualCount = CountFun(),
   wait_for_counts(ActualCount, NewActualCount, ExpectedCount, CountFun).
 
