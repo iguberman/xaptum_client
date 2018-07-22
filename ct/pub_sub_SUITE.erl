@@ -173,8 +173,12 @@ test_pub_sub(Config) ->
 start_devices(DataDir, StartDevices, EndDevices)->
   start_devices(DataDir, StartDevices, EndDevices, 0).
 
-start_devices(DataDir, StartDevices, EndDevices, NumMessages)->
-  [start_device(DataDir, N, NumMessages) || N <- lists:seq(StartDevices, EndDevices)].
+start_devices(DataDir, StartDevices, EndDevices, NumMessages) ->
+  [begin
+     start_device(DataDir, N, NumMessages),
+     timer:sleep(10)
+   end
+    || N <- lists:seq(StartDevices, EndDevices)].
 
 start_device(DataDir, N, NumMessages)->
   PubFileCreds = init_file_creds(DataDir, ?XTT_CRED_DIR(N)),
