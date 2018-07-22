@@ -160,6 +160,14 @@ on_reconnect(TlsSocket, #dds{
 on_disconnect(_TlsSocket, CallbackData) ->
   {ok, CallbackData}.
 
+%% Received packet, when there are still some previous bytes unprocessed
+on_receive(Packet, #dds{prev_bytes = PrevBytes} = DdsEndpoint) when size(PrevBytes) > 0 ->
+  Size = size(PrevBytes),
+  on_receive(<<PrevBytes:Size/binary, Packet/binary>>, DdsEndpoint#dds{prev_bytes = <<>>});
+%% Received incomplete DDS header
+on_receive(<<?DDS_MARKER, Rest/binary>> = IncompleteDdsHeader, #dds{prev_bytes = <<>>} = DdsEndpoint) when size(Rest) =< 2 ->
+  {ok, DdsEndpoint#dds{prev_bytes = IncompleteDdsHeader}};
+%% Received complete DDS header
 on_receive(<<?DDS_MARKER, ReqType, Size:16, Rest/binary>> = Packet, #dds{prev_bytes = <<>>} = DdsEndpoint)->
   case size(Rest) of
     Size -> process_dds_packet(ReqType, Rest, DdsEndpoint);
@@ -173,9 +181,6 @@ on_receive(<<?DDS_MARKER, ReqType, Size:16, Rest/binary>> = Packet, #dds{prev_by
         {error, Reason} -> {error, Reason}
       end
   end;
-on_receive(Packet, #dds{prev_bytes = PrevBytes} = DdsEndpoint) when size(PrevBytes) > 0 ->
-  Size = size(PrevBytes),
-  on_receive(<<PrevBytes:Size/binary, Packet/binary>>, DdsEndpoint#dds{prev_bytes = <<>>});
 on_receive(UnexpectedTcpPacket, #dds{prev_bytes = PrevBytes} = DdsEndpoint)->
   lager:warning("TCP: Unexpected tcp packet ~p, PrevBytes ~p", [UnexpectedTcpPacket, PrevBytes]),
   {error, invalid_packet}.
