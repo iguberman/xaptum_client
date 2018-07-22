@@ -175,8 +175,8 @@ start_devices(DataDir, StartDevices, EndDevices)->
 
 start_devices(DataDir, StartDevices, EndDevices, NumMessages) ->
   [begin
-     start_device(DataDir, N, NumMessages),
-     timer:sleep(10)
+     timer:sleep(10),
+     start_device(DataDir, N, NumMessages)
    end
     || N <- lists:seq(StartDevices, EndDevices)].
 
