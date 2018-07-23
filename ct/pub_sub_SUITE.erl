@@ -51,7 +51,7 @@ all() -> [
 
 groups() -> [
   {simple, [sequence], [test_pub_sub]},
-  {large, [parallel], [test_devices, test_subs]}
+  {large, [parallel], [test_subs, test_devices]}
 ].
 
 init_per_suite(Config)->
@@ -224,9 +224,15 @@ count_receives(Endpoints)->
   lager:info("Counting receives on ~p", [Endpoints]),
   lists:foldl(
     fun(EndpointPid, Acc) ->
-      #dds{endpoint_data = #endpoint{num_received = NumRecv}} = xaptum_endpoint:get_data(EndpointPid),
-      lager:info("~p received ~b", [EndpointPid, NumRecv]),
-      Acc + NumRecv
+      try xaptum_endpoint:get_data(EndpointPid) of
+        #dds{endpoint_data = #endpoint{num_received = NumRecv}} ->
+          lager:info("~p received ~b", [EndpointPid, NumRecv]),
+          Acc + NumRecv
+      catch
+        Error:Exception ->
+          lager:error("Got ~p:~p getting receive data from ~p", [Error, Exception, EndpointPid]),
+          Acc
+      end
     end,
     0,
     Endpoints).
@@ -235,9 +241,15 @@ count_sends(Endpoints)->
   lager:info("Counting sends on ~p", [Endpoints]),
   lists:foldl(
     fun(EndpointPid, Acc) ->
-      #dds{endpoint_data = #endpoint{num_sent = NumSent}} = xaptum_endpoint:get_data(EndpointPid),
-      lager:info("~p sent ~b", [EndpointPid, NumSent]),
-      Acc + NumSent
+      try xaptum_endpoint:get_data(EndpointPid) of
+        #dds{endpoint_data = #endpoint{num_sent = NumSent}}  ->
+          lager:info("~p sent ~b", [EndpointPid, NumSent]),
+          Acc + NumSent
+      catch
+        Error:Exception ->
+          lager:error("Got ~p:~p getting send data from ~p", [Error, Exception, EndpointPid]),
+          Acc
+      end
     end,
     0,
     Endpoints).
