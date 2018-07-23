@@ -17,8 +17,10 @@
 
 -behavior(xaptum_endpoint).
 
+-define(READY_WAIT_TIMEOUT, 30000).
+
 %% API
--export([start/1, init_file_creds/4]).
+-export([start/1, init_file_creds/4, wait_for_endpoint_ready/1]).
 
 %% xaptum_endpoint callbacks
 -export([
@@ -33,6 +35,21 @@
 
 start(Creds)->
   xaptum_endpoint_sup:create_endpoint(?MODULE, #endpoint{}, Creds).
+
+wait_for_endpoint_ready(EndpointPid) ->
+  wait_for_endpoint_ready(EndpointPid, ?READY_WAIT_TIMEOUT).
+
+wait_for_endpoint_ready(EndpointPid, Timeout)->
+  wait_for_endpoint_ready(EndpointPid, xaptum_endpoint:get_data(EndpointPid), Timeout).
+
+wait_for_endpoint_ready(_EndpointPid, #endpoint{ipv6 = undefined}, Timeout) when Timeout =< 0->
+  {error, timeout};
+wait_for_endpoint_ready(EndpointPid, #endpoint{ipv6 = undefined}, Timeout) ->
+  timer:sleep(100),
+  lager:debug("Waiting for XttEndpoint getting ipv6 address ~p... ", [EndpointPid]),
+  wait_for_endpoint_ready(EndpointPid, xaptum_endpoint:get_data(EndpointPid), Timeout - 100);
+wait_for_endpoint_ready(_EndpointPid, #endpoint{ipv6 = Ipv6}, _Timeout) when is_binary(Ipv6) ->
+  {ok, Ipv6}.
 
 %%%===================================================================
 %%% xaptum_endpoint callbacks
