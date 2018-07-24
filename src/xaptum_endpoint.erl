@@ -203,14 +203,14 @@ handle_cast({send_request, Request}, #state{
       {noreply, State};
     {error, Error} ->
       lager:error("Failed to send request ~p due to error ~p", [Request, Error]),
-      reconnect(self()),
+      connect(self()),
       {noreply, State}
   end;
 
 handle_cast({ssl_error, _Error}, #state{tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket} = State)
     when is_port(TcpSocket), is_pid(SslPid) ->
     erltls:close(TlsSocket),
-    reconnect(self()),
+    connect(self()),
   {noreply, State}.
 
 handle_info({ssl, TlsSocket, Msg}, #state{tls_socket = TlsSocket, callback_module = CallbackModule, callback_data = CallbackData0} = State) ->
@@ -223,11 +223,11 @@ handle_info({ssl_error, TlsSocket, Error}, #state{tls_socket = TlsSocket} = Stat
   catch Error:Exception ->  %% maybe it's already closed
     lager:warning("~p:~p when closing tls socket during ssl_error ~p", [Error, Exception, Error])
   end,
-  reconnect(self()),
+  connect(self()),
   {noreply, State};
 handle_info({ssl_closed, TlsSocket}, #state{tls_socket = TlsSocket, callback_data = CallbackData} = State)->
   lager:warning("SSL closed on ~p for ~p, reconnecting", [TlsSocket, CallbackData]),
-  reconnect(self()),
+  connect(self()),
   {noreply, State};
 handle_info(UnexpectedInfo, State)->
   lager:warning("Unexpected info ~p", [UnexpectedInfo]),
