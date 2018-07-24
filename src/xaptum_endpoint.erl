@@ -194,7 +194,7 @@ handle_cast({send_message, Payload}, #state{
   end;
 handle_cast({send_message, Payload}, State)->
   lager:error("Send message ~p during invalid state ~p", [Payload, State]),
-  {stop, invalid_state, State};
+  {noreply, State};
 handle_cast({send_request, Request}, #state{
   tls_socket = #tlssocket{} = TlsSocket} = State)->
   case erltls:send(TlsSocket, Request) of
@@ -203,13 +203,14 @@ handle_cast({send_request, Request}, #state{
       {noreply, State};
     {error, Error} ->
       lager:error("Failed to send request ~p due to error ~p", [Request, Error]),
-      {stop, {tls_error, Error}, State}
+      reconnect(self()),
+      {noreply, State}
   end;
 
 handle_cast({ssl_error, _Error}, #state{tls_socket = #tlssocket{tcp_sock = TcpSocket, ssl_pid = SslPid} = TlsSocket} = State)
     when is_port(TcpSocket), is_pid(SslPid) ->
     erltls:close(TlsSocket),
-    connect(self()),
+    reconnect(self()),
   {noreply, State}.
 
 handle_info({ssl, TlsSocket, Msg}, #state{tls_socket = TlsSocket, callback_module = CallbackModule, callback_data = CallbackData0} = State) ->
@@ -218,12 +219,16 @@ handle_info({ssl, TlsSocket, Msg}, #state{tls_socket = TlsSocket, callback_modul
   {noreply, State#state{callback_data = CallbackData1}};
 handle_info({ssl_error, TlsSocket, Error}, #state{tls_socket = TlsSocket} = State)->
   lager:warning("ssl_error ~p, closing TLS socket ~p and reconnecting", [Error, TlsSocket]),
-  erltls:close(TlsSocket),
-  connect(self()),
+  try erltls:close(TlsSocket)
+  catch Error:Exception ->  %% maybe it's already closed
+    lager:warning("~p:~p when closing tls socket during ssl_error ~p", [Error, Exception, Error])
+  end,
+  reconnect(self()),
   {noreply, State};
 handle_info({ssl_closed, TlsSocket}, #state{tls_socket = TlsSocket, callback_data = CallbackData} = State)->
-  lager:warning("SSL closed on ~p for ~p", [TlsSocket, CallbackData]),
-  {stop, ssl_closed, State};
+  lager:warning("SSL closed on ~p for ~p, reconnecting", [TlsSocket, CallbackData]),
+  reconnect(self()),
+  {noreply, State};
 handle_info(UnexpectedInfo, State)->
   lager:warning("Unexpected info ~p", [UnexpectedInfo]),
   {noreply, State}.

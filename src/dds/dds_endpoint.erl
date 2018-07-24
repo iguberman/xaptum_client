@@ -45,21 +45,20 @@ start(Creds)->
   xaptum_endpoint_sup:create_endpoint(?MODULE,
     #dds{endpoint_data = #endpoint{}}, Creds).
 
-wait_for_endpoint_ready(Pub) ->
-  wait_for_endpoint_ready(Pub, ?READY_WAIT_TIMEOUT).
+wait_for_endpoint_ready(EndpointPid) ->
+  wait_for_endpoint_ready(EndpointPid, ?READY_WAIT_TIMEOUT).
 
-wait_for_endpoint_ready(Pub, Timeout)->
-  wait_for_endpoint_ready(Pub, false, Timeout).
+wait_for_endpoint_ready(EndpointPid, Timeout)->
+  wait_for_endpoint_ready(EndpointPid, xaptum_endpoint:get_data(EndpointPid), Timeout).
 
-wait_for_endpoint_ready(_EndpointPid, false, Timeout) when Timeout =< 0->
+wait_for_endpoint_ready(_EndpointPid, #dds{ready = false}, Timeout) when Timeout =< 0->
   {error, timeout};
-wait_for_endpoint_ready(EndpointPid, false, Timeout) ->
+wait_for_endpoint_ready(EndpointPid, #dds{ready = false}, Timeout) ->
   timer:sleep(100),
-  #dds{ready = Ready} = DdsEndpoint = xaptum_endpoint:get_data(EndpointPid),
-  lager:debug("Waiting for DdsEndpoint ready ~p... ", [DdsEndpoint]),
-  wait_for_endpoint_ready(EndpointPid, Ready, Timeout - 100);
-wait_for_endpoint_ready(_EndpointPid, true, _Timeout) ->
-  {ok, true}.
+  lager:debug("Waiting for DdsEndpoint ready ~p... ", [EndpointPid]),
+  wait_for_endpoint_ready(EndpointPid, xaptum_endpoint:get_data(EndpointPid), Timeout - 100);
+wait_for_endpoint_ready(_EndpointPid, #dds{ready = true, endpoint_data = #endpoint{ipv6 = Ipv6}}, _Timeout) ->
+  {ok, Ipv6}.
 
 %%%===================================================================
 %%% xaptum_endpoint callbacks
