@@ -51,7 +51,7 @@ all() -> [
 
 groups() -> [
   {simple, [sequence], [test_pub_sub]},
-  {large, [parallel], [test_subs, test_devices]}
+  {large, [parallel], [test_devices, test_subs]}
 ].
 
 init_per_suite(Config)->
@@ -183,7 +183,7 @@ start_devices(DataDir, StartDevices, EndDevices, NumMessages) ->
 start_device(DataDir, N, NumMessages)->
   PubFileCreds = init_file_creds(DataDir, ?XTT_CRED_DIR(N)),
   {ok, Device} = dds_endpoint:start(PubFileCreds),
-  {ok, _Ipv6} = dds_endpoint:wait_for_endpoint_ready(Device),
+  {ok, true} = dds_endpoint:wait_for_endpoint_ready(Device),
   lager:info("############## STARTING TO SEND ~b messages from device #~b", [NumMessages, N]),
   spawn(?MODULE, send_reg_messages, [Device, N, NumMessages]),
   Device.
