@@ -14,7 +14,7 @@
 
 %% API
 -export([all/0, groups/0, init_per_suite/1, end_per_suite/1, init_per_group/2, end_per_group/2]).
--export([test_pub_sub/1, test_devices/1, test_subs/1, send_reg_messages/3]).
+-export([test_pub_sub/1, test_devices/1, test_subs/1, start_device/3, send_reg_messages/3]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -28,6 +28,7 @@
 -define(MESSAGE_LATENCY, 2000).
 
 -define(MB_PUBLIC_KEYS_DIR, "/opt/xaptum/public/group_public_keys").
+-define(MB_SUBNETS_DIR, "/opt/xaptum/public/subnets").
 
 -define(CRED_BASE_DIR, "/opt/xaptum/xaptum_client").
 
@@ -176,7 +177,7 @@ start_devices(DataDir, StartDevices, EndDevices)->
 start_devices(DataDir, StartDevices, EndDevices, NumMessages) ->
   [begin
      timer:sleep(10),
-     start_device(DataDir, N, NumMessages)
+     spawn(?MODULE, start_device, [DataDir, N, NumMessages])
    end
     || N <- lists:seq(StartDevices, EndDevices)].
 
@@ -185,7 +186,7 @@ start_device(DataDir, N, NumMessages)->
   {ok, Device} = dds_endpoint:start(PubFileCreds),
   {ok, _Ipv6} = dds_endpoint:wait_for_endpoint_ready(Device),
   lager:info("############## STARTING TO SEND ~b messages from device #~b", [NumMessages, N]),
-  spawn(?MODULE, send_reg_messages, [Device, N, NumMessages]),
+  send_reg_messages(Device, N, NumMessages),
   Device.
 
 send_signals(EndpointPid, EndpointSequence, DestinationPids, NumMessages) ->
@@ -364,6 +365,6 @@ register_gpk_with_mb(GroupDir)->
     {ok, GidCsv} when is_list(GidCsv) ->
       %% TEMP workaround until IAM is ready
       Prompt = lists:flatten(io_lib:format(
-        "Please copy ~p to all MBs' ~p directory.~nPress any key when finished:", [GidCsv, ?MB_PUBLIC_KEYS_DIR])),
+        "Please copy ~p to one of the cluster server's ~p and ~p directories.~nPress any key when finished:", [GidCsv, ?MB_PUBLIC_KEYS_DIR, ?MB_SUBNETS_DIR])),
       io:fread(Prompt, "~s")
   end.
