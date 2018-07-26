@@ -177,7 +177,7 @@ start_devices(DataDir, StartDevices, EndDevices)->
 start_devices(DataDir, StartDevices, EndDevices, NumMessages) ->
   [begin
      timer:sleep(10),
-     spawn(?MODULE, start_device, [DataDir, N, NumMessages])
+     start_device(DataDir, N, NumMessages)
    end
     || N <- lists:seq(StartDevices, EndDevices)].
 
@@ -186,7 +186,7 @@ start_device(DataDir, N, NumMessages)->
   {ok, Device} = dds_endpoint:start(PubFileCreds),
   {ok, _Ipv6} = dds_endpoint:wait_for_endpoint_ready(Device),
   lager:info("############## STARTING TO SEND ~b messages from device #~b", [NumMessages, N]),
-  send_reg_messages(Device, N, NumMessages),
+  spawn(?MODULE, send_reg_messages, [Device, N, NumMessages]),
   Device.
 
 send_signals(EndpointPid, EndpointSequence, DestinationPids, NumMessages) ->
